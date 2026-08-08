@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Faculty ICT Usage Visual Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; background: #f9f9f9; }
+    header { text-align: center; background: #004080; color: white; padding: 15px; }
+    header img { width: 100px; margin-bottom: 10px; }
+    h1, h2 { margin: 5px; }
+    .section { margin-bottom: 30px; }
+    .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, textarea, select { width: 100%; padding: 8px; margin-top: 5px; }
+    canvas { margin-top: 20px; }
+    button { margin-top: 15px; padding: 10px 15px; background: #004080; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0066cc; }
+    .proofs img { margin: 10px; border-radius: 5px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="YOUR_LOGO_URL_HERE" alt="Guru Nanak College Logo">
+  <h1>GURU NANAK COLLEGE (AUTONOMOUS)</h1>
+  <h2>Faculty ICT Usage Visual Report</h2>
+  <p>A Sikh Minority Institution | Unit of Guru Nanak Educational Society (Regd.)<br>
+  Affiliated to University of Madras | Approved by AICTE | Accredited at "A++" Grade by NAAC<br>
+  Guru Nanak Salai, Velachery, Chennai - 600042</p>
+</header>
+
+<!-- Faculty Details -->
+<div class="section">
+  <h2>Faculty Details</h2>
+  <label>Name:</label>
+  <input id="name">
+  
+  <label>Department:</label>
+  <input id="department">
+  
+  <label>Course Title & Code:</label>
+  <input id="course">
+  
+  <label>Batch / Semester / Year:</label>
+  <input id="batch">
+</div>
+
+<!-- ICT Tool Entry -->
+<div class="section" id="entries">
+  <h2>ICT Tools / Methods Used</h2>
+</div>
+
+<button onclick="addEntry()">Add ICT Tool Entry</button>
+
+<!-- Faculty Reflection -->
+<div class="section">
+  <h2>Faculty Reflection</h2>
+  <label>Strengths of ICT Integration:</label>
+  <textarea id="strengths"></textarea>
+  
+  <label>Challenges Faced:</label>
+  <textarea id="challenges"></textarea>
+  
+  <label>Future Improvements Planned:</label>
+  <textarea id="future"></textarea>
+  
+  <button onclick="generateReport()">Generate Report</button>
+  <button onclick="downloadPDF()">Download as PDF</button>
+</div>
+
+<!-- Report Output -->
+<div class="section" id="reportSection">
+  <h2>Visual Report</h2>
+  <div id="report"></div>
+  <canvas id="chart" width="400" height="200"></canvas>
+  <canvas id="pieChart" width="400" height="200"></canvas>
+</div>
+
+<script>
+let data = [];
+
+function addEntry() {
+  const container = document.createElement('div');
+  container.className = "card";
+  container.innerHTML = `
+    <label>ICT Method / Tool:</label>
+    <select class="tool">
+      <option value="LMS (Moodle, Google Classroom)">LMS (Moodle, Google Classroom)</option>
+      <option value="Presentation Tools (PPT, Prezi, Canva)">Presentation Tools (PPT, Prezi, Canva)</option>
+      <option value="Online Assessment Tools (Google Forms, Kahoot, Quizizz)">Online Assessment Tools (Google Forms, Kahoot, Quizizz)</option>
+      <option value="Video Conferencing (Zoom, MS Teams, Google Meet)">Video Conferencing (Zoom, MS Teams, Google Meet)</option>
+      <option value="Digital Content (YouTube, Recorded Lectures, Podcasts)">Digital Content (YouTube, Recorded Lectures, Podcasts)</option>
+      <option value="Interactive Tools (Padlet, Mentimeter, Jamboard)">Interactive Tools (Padlet, Mentimeter, Jamboard)</option>
+      <option value="Generic Tools (Simulation & Modelling Software)">Generic Tools (Simulation & Modelling Software)</option>
+      <option value="Open Educational Resources (NPTEL, SWAYAM, Blogs, NDL)">Open Educational Resources (NPTEL, SWAYAM, Blogs, NDL)</option>
+      <option value="Other">Other</option>
+    </select>
+    
+    <label>Purpose of Use:</label>
+    <textarea class="purpose"></textarea>
+    
+    <label>Effectiveness (1–10):</label>
+    <select class="effectiveness">
+      ${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+    </select>
+    
+    <label>Mode:</label>
+    <select class="mode">
+      <option value="Synchronous">Synchronous</option>
+      <option value="Asynchronous">Asynchronous</option>
+    </select>
+    
+    <label>Proof Link:</label>
+    <input class="link">
+    
+    <label>Upload Screenshot Proof:</label>
+    <input class="screenshot" type="file" accept="image/*">
+    
+    <label>Upload Photo Proof:</label>
+    <input class="photo" type="file" accept="image/*">
+    
+    <label>Upload Student Activity Document (PDF/DOCX) [Optional]:</label>
+    <input class="studentDoc" type="file" accept=".pdf,.doc,.docx">
+  `;
+  document.getElementById('entries').appendChild(container);
+}
+
+function generateReport() {
+  data = [];
+  const entries = document.querySelectorAll('#entries .card');
+  entries.forEach(entry => {
+    const tool = entry.querySelector('.tool').value;
+    const purpose = entry.querySelector('.purpose').value;
+    const effectiveness = parseInt(entry.querySelector('.effectiveness').value);
+    const mode = entry.querySelector('.mode').value;
+    const link = entry.querySelector('.link').value;
+    const screenshot = entry.querySelector('.screenshot').files[0];
+    const photo = entry.querySelector('.photo').files[0];
+    const studentDoc = entry.querySelector('.studentDoc').files[0];
+    data.push({ tool, purpose, effectiveness, mode, link, screenshot, photo, studentDoc: studentDoc ? studentDoc.name : null });
+  });
+
+  const reportDiv = document.getElementById('report');
+  reportDiv.innerHTML = `
+    <div class="card">
+      <h3>Faculty Details</h3>
+      <p><strong>Name:</strong> ${document.getElementById('name').value}</p>
+      <p><strong>Department:</strong> ${document.getElementById('department').value}</p>
+      <p><strong>Course:</strong> ${document.getElementById('course').value}</p>
+      <p><strong>Batch/Semester/Year:</strong> ${document.getElementById('batch').value}</p>
+    </div>
+  `;
+
+  data.forEach(item => {
+    reportDiv.innerHTML += `
+      <div class="card">
+        <h3>${item.tool}</h3>
+        <p><strong>Purpose:</strong> ${item.purpose}</p>
+       function generateReport() {
+  const reportDiv = document.getElementById('report');
+  reportDiv.innerHTML = `
+    <div class="card">
+      <h3>Faculty Details</h3>
+      <p><strong>Name:</strong> ${document.getElementById('name').value}</p>
+      <p><strong>Department:</strong> ${document.getElementById('department').value}</p>
+      <p><strong>Course:</strong> ${document.getElementById('course').value}</p>
+      <p><strong>Batch/Semester/Year:</strong> ${document.getElementById('batch').value}</p>
+    </div>
+  `;
+
+  data.forEach(item => {
+    reportDiv.innerHTML += `
+      <div class="card">
+        <h3>${item.tool}</h3>
+        <p><strong>Purpose:</strong> ${item.purpose}</p>
+        <p><strong>Effectiveness:</strong> ${item.effectiveness}/10</p>
+        <p><strong>Mode:</strong> ${item.mode}</p>
+        ${item.link ? `<p><strong>Proof Link:</strong> <a href="${item.link}" target="_blank">${item.link}</a></p>` : ''}
+        ${item.screenshot ? `<img src="${item.screenshot}" width="200" alt="Screenshot Proof">` : ''}
+        ${item.photo ? `<img src="${item.photo}" width="200" alt="Photo Proof">` : ''}
+        ${item.studentDoc ? `<p><strong>Student Activity Document:</strong> ${item.studentDoc}</p>` : ''}
+      </div>`;
+  });
+
+  reportDiv.innerHTML += `
+    <div class="card">
+      <h3>Faculty Reflection</h3>
+      <p><strong>Strengths:</strong> ${document.getElementById('strengths').value}</p>
+      <p><strong>Challenges:</strong> ${document.getElementById('challenges').value}</p>
+      <p><strong>Future Improvements:</strong> ${document.getElementById('future').value}</p>
+    </div>
+  `;
+
+  renderCharts();
+}
+
+function renderCharts() {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const labels = data.map(d => d.tool);
+  const values = data.map(d => d.effectiveness);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Effectiveness Score (1–10)',
+        data: values,
+        backgroundColor: '#0073e6'
+      }]
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Effectiveness of ICT Tools' },
+        legend: { display: true }
+      },
+      scales: { y: { beginAtZero: true, max: 10 } }
+    }
+  });
+
+  const syncCount = data.filter(d => d.mode === "Synchronous").length;
+  const asyncCount = data.filter(d => d.mode === "Asynchronous").length;
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+
+  new Chart(pieCtx, {
+    type: 'pie',
+    data: {
+      labels: ['Synchronous', 'Asynchronous'],
+      datasets: [{
+        data: [syncCount, asyncCount],
+        backgroundColor: ['#ff9933', '#66cc66']
+      }]
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Teaching Mode Distribution' },
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+}
+
+function downloadPDF() {
+  const element = document.getElementById('reportSection');
+  html2pdf().from(element).save("Faculty_ICT_Usage_Report.pdf");
+}
+</script>
+</body>
+</html>
+                                    
