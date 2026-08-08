@@ -1,252 +1,965 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Faculty ICT Usage Visual Report</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
-  <style>
-    body { font-family: Arial; margin: 20px; background: #f9f9f9; }
-    header { text-align: center; background: #004080; color: white; padding: 15px; }
-    header img { width: 100px; margin-bottom: 10px; }
-    h1, h2 { margin: 5px; }
-    .section { margin-bottom: 30px; }
-    .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
-    label { display: block; margin-top: 10px; font-weight: bold; }
-    input, textarea, select { width: 100%; padding: 8px; margin-top: 5px; }
-    canvas { margin-top: 20px; }
-    button { margin-top: 15px; padding: 10px 15px; background: #004080; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background: #0066cc; }
-    .proofs img { margin: 10px; border-radius: 5px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faculty ICT Usage Visual Report | Guru Nanak College (Autonomous), Chennai</title>
+<meta name="description" content="Faculty ICT Usage documentation and visual report generator — Guru Nanak College (Autonomous), Chennai 600042.">
+
+<!--
+  ═══════════════════════════════════════════════════════════════
+  FACULTY ICT USAGE VISUAL REPORT — Guru Nanak College (Autonomous)
+  Single-file app. Just open index.html or host via GitHub Pages.
+  To use the official college logo: replace the crest injection
+  (search for "CREST_SVG" below) with <img src="logo.png">.
+  ═══════════════════════════════════════════════════════════════
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700;800;900&family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════ 1 · FOUNDATIONS ══════════════ */
+:root{
+  --navy-900:#0b2545; --navy-800:#13315c; --navy-700:#1d4e89; --navy-600:#2d6ab8;
+  --gold-500:#e8a020; --gold-400:#f4b942; --gold-100:#fdf3dc;
+  --ink:#182a44; --muted:#5b6b83; --line:#dde5f0; --line-soft:#e9eef6;
+  --card:#ffffff;
+  --radius:14px;
+  --shadow:0 10px 30px rgba(11,37,69,.09), 0 2px 6px rgba(11,37,69,.05);
+  --disp:'Bitter', Georgia, serif;
+  --body:'Public Sans','Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--body); color:var(--ink); font-size:16px; line-height:1.55;
+  background:
+    radial-gradient(900px 480px at 88% -120px, rgba(232,160,32,.12), transparent 60%),
+    radial-gradient(1100px 620px at -140px 18%, rgba(29,78,137,.11), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(19,49,92,.028) 0 1px, transparent 1px 30px),
+    repeating-linear-gradient(90deg, rgba(19,49,92,.028) 0 1px, transparent 1px 30px),
+    #eef2f7;
+  min-height:100vh;
+}
+::selection{background:var(--gold-400);color:var(--navy-900)}
+
+/* ══════════════ 2 · MASTHEAD ══════════════ */
+.masthead{
+  position:relative; color:#fff;
+  background:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 15px),
+    radial-gradient(820px 320px at 92% -60px, rgba(232,160,32,.20), transparent 62%),
+    linear-gradient(135deg,#081c38,#13315c 55%,#1d4e89);
+  transition:box-shadow .3s;
+}
+body.scrolled .masthead{box-shadow:0 8px 28px rgba(11,37,69,.4)}
+.masthead-inner{max-width:1180px;margin:0 auto;padding:26px 24px;display:flex;align-items:center;gap:22px}
+.mast-crest svg{width:88px;height:auto;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));flex:none}
+.mast-kicker{font-size:.7rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#cfe0f5;margin-bottom:4px}
+.masthead h1{font-family:var(--disp);font-weight:800;font-size:clamp(1.45rem,2.7vw,2.15rem);line-height:1.15}
+.masthead h1 span{color:var(--gold-400);font-weight:600}
+.mast-sub{font-size:.85rem;color:#b9c9e0;margin-top:4px}
+.mast-badge{margin-left:auto;text-align:right;border:1px solid rgba(232,160,32,.55);border-radius:10px;padding:12px 16px;background:rgba(255,255,255,.045);flex:none}
+.badge-title{display:block;font-family:var(--disp);font-weight:700;font-size:.95rem;color:var(--gold-400)}
+.badge-sub{display:block;font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:#cfe0f5;margin-top:3px}
+.badge-ay{display:inline-block;margin-top:9px;background:var(--gold-500);color:var(--navy-900);font-weight:800;font-size:.68rem;letter-spacing:.09em;padding:3px 11px;border-radius:999px}
+.gold-strip{height:6px;background:linear-gradient(90deg,#c9821a,#f4b942 45%,#e8a020)}
+@media(max-width:900px){.mast-badge{display:none}}
+@media(max-width:560px){.mast-crest svg{width:64px}.masthead-inner{gap:14px}}
+
+/* ══════════════ 3 · LAYOUT SHELL ══════════════ */
+.shell{max-width:1180px;margin:30px auto 60px;padding:0 24px}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 322px;gap:22px;align-items:start}
+@media(max-width:1020px){.workspace{grid-template-columns:1fr}}
+
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:26px 26px 28px;margin-bottom:22px;position:relative;
+  transition:border-color .3s;
+}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:14px 14px 0 0;
+  background:linear-gradient(90deg,var(--gold-500),var(--gold-400) 42%,transparent 75%)}
+.card:focus-within{border-color:#c4d4ec}
+
+.sec-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:20px}
+.sec-num{width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--navy-800),var(--navy-700));color:var(--gold-400);
+  font-family:var(--disp);font-weight:800;font-size:1rem;box-shadow:inset 0 0 0 1px rgba(232,160,32,.4)}
+.sec-head h2{font-family:var(--disp);font-size:1.28rem;color:var(--navy-900)}
+.sec-head p{color:var(--muted);font-size:.85rem;margin-top:2px}
+.sec-head .btn{margin-left:auto;flex:none;align-self:center}
+
+/* ══════════════ 4 · FORM CONTROLS ══════════════ */
+.field{display:flex;flex-direction:column;gap:6px}
+.label{font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--navy-700)}
+input[type=text],input[type=url],select,textarea{
+  font:inherit;font-size:.93rem;color:var(--ink);background:#f7f9fc;
+  border:1px solid var(--line);border-radius:9px;padding:.62rem .8rem;width:100%;
+  transition:border-color .18s, box-shadow .18s, background .18s;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-700);background:#fff;box-shadow:0 0 0 3px rgba(29,78,137,.14)}
+textarea{resize:vertical;min-height:74px}
+select{cursor:pointer}
+.fac-form{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.span2{grid-column:span 2}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+@media(max-width:700px){.fac-form{grid-template-columns:1fr}.span2{grid-column:auto}}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+
+/* segmented mode control */
+.seg{display:flex;background:#eef2f8;border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.seg-opt{flex:1;position:relative}
+.seg-opt input{position:absolute;opacity:0;pointer-events:none}
+.seg-opt span{display:block;text-align:center;font-size:.83rem;font-weight:600;color:var(--muted);
+  padding:.52rem .4rem;border-radius:7px;cursor:pointer;transition:.18s;user-select:none}
+.seg-opt span:hover{color:var(--navy-800)}
+.seg-opt input:checked + span{background:var(--navy-800);color:#fff;box-shadow:0 3px 8px rgba(11,37,69,.28)}
+.seg-opt input:focus-visible + span{box-shadow:0 0 0 3px rgba(232,160,32,.45)}
+
+/* effectiveness badge */
+.eff-wrap{display:flex;gap:8px;align-items:center}
+.eff-wrap select{flex:1}
+.eff-badge{font-size:.68rem;font-weight:800;padding:5px 10px;border-radius:999px;letter-spacing:.05em;white-space:nowrap}
+.lvl-high{background:#e3f2e9;color:#1e7d4f}
+.lvl-mid{background:var(--gold-100);color:#a06d0a}
+.lvl-low{background:#fbe9e5;color:#b3402e}
+
+/* ══════════════ 5 · ICT ENTRY CARDS ══════════════ */
+.entry{
+  background:#fbfcfe;border:1px solid var(--line);border-left:4px solid var(--gold-500);
+  border-radius:12px;padding:18px;margin-top:14px;
+  animation:entryIn .45s cubic-bezier(.2,.7,.3,1);
+}
+@keyframes entryIn{from{opacity:0;transform:translateY(14px) scale(.99)}to{opacity:1;transform:none}}
+.entry.leaving{opacity:0;transform:translateY(-8px) scale(.98);transition:.24s}
+.entry-top{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+.entry-num{font-size:.66rem;font-weight:800;letter-spacing:.14em;color:#fff;background:var(--navy-800);padding:4px 10px;border-radius:6px}
+.entry-tool-chip{font-size:.74rem;font-weight:600;color:var(--navy-700);background:#e7eefb;border:1px solid #cfdef5;padding:4px 11px;border-radius:999px;transition:.2s}
+.js-remove{margin-left:auto;background:none;border:none;color:#b3402e;font:600 .79rem var(--body);cursor:pointer;padding:4px 9px;border-radius:6px;transition:.15s}
+.js-remove:hover{background:#fbe9e5}
+.tool-other{margin-top:8px;display:none}
+.entry.is-other .tool-other{display:block}
+
+/* uploads */
+.uploads{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+@media(max-width:760px){.uploads{grid-template-columns:1fr}}
+.upload{border:1.5px dashed #c6d2e4;border-radius:10px;padding:12px;background:#fff;transition:.2s}
+.upload:hover{border-color:var(--navy-600);background:#f7faff}
+.upload-btn{display:flex;gap:10px;align-items:center;width:100%;background:none;border:none;cursor:pointer;text-align:left;font:inherit}
+.up-ico{width:36px;height:36px;flex:none;border-radius:9px;background:var(--gold-100);border:1px solid #f0dcae;display:grid;place-items:center;font-size:1.05rem;transition:transform .2s}
+.upload:hover .up-ico{transform:scale(1.08) rotate(-3deg)}
+.upload-btn b{font-size:.82rem;color:var(--navy-900);display:block}
+.upload-btn small{font-size:.7rem;color:var(--muted);display:block;margin-top:1px;word-break:break-all}
+.thumb{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-top:10px;animation:entryIn .3s}
+.thumb img{width:100%;height:118px;object-fit:cover;display:block}
+.thumb figcaption{font-size:.64rem;color:var(--muted);padding:4px 8px;background:#f7f9fc;text-transform:uppercase;letter-spacing:.09em;font-weight:700}
+.thumb button{position:absolute;top:6px;right:6px;width:23px;height:23px;border-radius:50%;border:none;background:rgba(11,37,69,.78);color:#fff;cursor:pointer;font-size:.8rem;line-height:1}
+.thumb button:hover{background:#b3402e}
+.doc-chip{display:flex;align-items:center;gap:8px;background:#e7eefb;border:1px solid #cfdef5;padding:7px 10px;border-radius:8px;font-size:.77rem;color:var(--navy-800);font-weight:600;margin-top:10px;word-break:break-all}
+.doc-chip button{margin-left:auto;border:none;background:none;color:#b3402e;cursor:pointer;font-weight:800}
+
+/* ══════════════ 6 · BUTTONS ══════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:700 .88rem var(--body);
+  border:none;border-radius:10px;padding:.78rem 1.35rem;cursor:pointer;letter-spacing:.02em;
+  transition:transform .18s, box-shadow .18s, background .18s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--navy-800),var(--navy-700));color:#fff;box-shadow:0 8px 20px rgba(19,49,92,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(19,49,92,.4)}
+.btn-gold{background:linear-gradient(135deg,var(--gold-500),var(--gold-400));color:var(--navy-900);box-shadow:0 8px 18px rgba(232,160,32,.35)}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(232,160,32,.45)}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--navy-800)}
+.btn-ghost:hover{border-color:var(--navy-700);background:#f4f8fc;transform:translateY(-1px)}
+.btn[disabled]{opacity:.6;cursor:wait;transform:none!important}
+.btn-xl{padding:1rem 2.1rem;font-size:.98rem;border-radius:12px}
+.add-dashed{width:100%;margin-top:16px;border:2px dashed #c6d2e4;background:#fbfcfe;color:var(--navy-700);
+  border-radius:12px;padding:.85rem;font:700 .89rem var(--body);cursor:pointer;transition:.2s}
+.add-dashed:hover{border-color:var(--gold-500);background:var(--gold-100);color:#8a5f08}
+.cta-row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:4px 0 8px}
+.cta-hint{font-size:.8rem;color:var(--muted)}
+
+/* ══════════════ 7 · LIVE PULSE SIDEBAR ══════════════ */
+.pulse{position:sticky;top:18px}
+.pulse-title{font-family:var(--disp);font-weight:800;font-size:1.05rem;color:var(--navy-900);display:flex;align-items:center;gap:9px}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#2fae63;animation:pulseDot 1.7s infinite}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(47,174,99,.5)}55%{box-shadow:0 0 0 7px rgba(47,174,99,0)}}
+.pulse-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 14px}
+.pstat{background:#f5f8fc;border:1px solid var(--line-soft);border-radius:10px;padding:10px 10px;text-align:center;transition:transform .2s}
+.pstat:hover{transform:translateY(-2px)}
+.pstat b{font-family:var(--disp);font-size:1.4rem;color:var(--navy-800);display:block;line-height:1.15}
+.pstat span{font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:800}
+.donut-row{display:flex;gap:16px;align-items:center;margin:4px 0 18px}
+.donut{width:98px;height:98px;border-radius:50%;position:relative;flex:none;transition:.4s;background:conic-gradient(#dfe6f0 0 360deg)}
+.donut::after{content:"";position:absolute;inset:23px;background:#fff;border-radius:50%;box-shadow:inset 0 1px 5px rgba(11,37,69,.1)}
+.donut-center{position:absolute;inset:0;display:grid;place-items:center;z-index:1;font-family:var(--disp);font-weight:800;color:var(--navy-800);font-size:.98rem}
+.legend{display:flex;flex-direction:column;gap:9px;font-size:.8rem;color:var(--ink)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:7px;vertical-align:-1px}
+.legend b{color:var(--navy-800)}
+.pulse-tip{font-size:.76rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:12px;margin-top:14px}
+
+/* ══════════════ 8 · REPORT ZONE ══════════════ */
+#reportZone{margin-top:36px;scroll-margin-top:20px}
+.empty-report{border:2px dashed #c9d5e6;border-radius:16px;background:rgba(255,255,255,.62);padding:56px 24px;text-align:center;color:var(--muted)}
+.empty-report .float-ico{font-size:2.5rem;display:inline-block;animation:floaty 3.4s ease-in-out infinite}
+@keyframes floaty{50%{transform:translateY(-9px)}}
+.empty-report h3{font-family:var(--disp);color:var(--navy-800);margin:10px 0 4px;font-size:1.15rem}
+.empty-report p{font-size:.86rem}
+.report-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-bottom:14px}
+
+/* the report sheet */
+.sheet{background:#fff;border:1px solid #d6dfee;border-radius:16px;overflow:hidden;box-shadow:0 22px 55px rgba(11,37,69,.15);max-width:940px;margin:0 auto;animation:entryIn .5s}
+.sheet-head{background:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px),
+    linear-gradient(135deg,#081c38,#13315c 60%,#1d4e89);
+  color:#fff;padding:26px 36px;display:flex;gap:20px;align-items:center;border-bottom:4px solid var(--gold-500)}
+.sheet-head .crest svg{width:58px;height:auto;flex:none}
+.sh-title h2{font-family:var(--disp);font-size:1.4rem;line-height:1.2}
+.sh-title p{font-size:.78rem;color:#cfe0f5;margin-top:3px}
+.sh-ref{color:var(--gold-400)!important;letter-spacing:.06em;font-weight:600}
+.gen-stamp{margin-left:auto;text-align:right;font-size:.62rem;color:#9fb6d6;letter-spacing:.14em;flex:none}
+.gen-stamp b{display:block;color:#fff;font-size:.82rem;letter-spacing:.02em;margin-top:2px}
+.gen-stamp span{display:block;margin-top:1px}
+.sheet-body{padding:32px 36px}
+.rp-section{margin-top:30px}
+.rp-section:first-child{margin-top:0}
+.rp-h{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;border-bottom:1px solid var(--line-soft);padding-bottom:9px}
+.rp-h .bar{width:8px;height:20px;background:var(--gold-500);border-radius:2px;align-self:center;flex:none}
+.rp-h h3{font-family:var(--disp);font-size:1.15rem;color:var(--navy-900)}
+.rp-sub{margin-left:auto;font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.nil{color:#93a1b5;font-style:italic;font-weight:400}
+
+.fac-grid{display:grid;grid-template-columns:repeat(3,1fr);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:12px;overflow:hidden}
+.fac-cell{padding:12px 16px;border-bottom:1px solid #e8edf5;border-right:1px solid #e8edf5}
+.fac-cell:nth-child(3n){border-right:none}
+.fac-cell:nth-last-child(-n+3){border-bottom:none}
+.fac-cell span{display:block;font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fac-cell b{font-size:.9rem;color:var(--navy-900)}
+
+.stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px 16px}
+.stat-tile b{font-family:var(--disp);font-size:1.65rem;color:var(--navy-800);display:block;line-height:1.1}
+.stat-tile span{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+
+.tool-card{border:1px solid #e3e9f3;border-left:4px solid var(--gold-500);border-radius:11px;padding:16px 18px;margin-bottom:14px;background:#fdfefe}
+.tc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tc-idx{font-family:var(--disp);font-weight:800;background:var(--gold-500);color:var(--navy-900);width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:.85rem;flex:none}
+.tc-head h4{font-family:var(--disp);font-size:1.06rem;color:var(--navy-900)}
+.tag{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:6px}
+.tag-cat{background:#e7eefb;color:var(--navy-700)}
+.tag-sync{background:var(--navy-800);color:#fff}
+.tag-async{background:var(--gold-500);color:var(--navy-900)}
+.tc-purpose{color:var(--ink);font-size:.89rem;margin:10px 0 0}
+.tc-meta{display:flex;align-items:center;gap:14px;margin-top:13px}
+.score-bubble{font-family:var(--disp);font-weight:800;font-size:1.1rem;width:50px;height:50px;border-radius:50%;display:grid;place-items:center;flex:none;border:2.5px solid}
+.meter-wrap{flex:1;min-width:140px}
+.mini-label{font-size:.58rem;font-weight:800;letter-spacing:.12em;color:var(--muted);display:block;margin-bottom:5px}
+.meter{height:9px;background:#e6ecf5;border-radius:99px;overflow:hidden}
+.meter-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.2,.7,.3,1)}
+.proof-link{display:inline-flex;gap:6px;align-items:center;font-size:.78rem;font-weight:600;color:var(--navy-700);background:#f0f5fc;padding:6px 11px;border-radius:8px;text-decoration:none;border:1px solid #d7e3f5;word-break:break-all;margin-top:12px}
+.proof-link:hover{text-decoration:underline}
+.doc-row{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--navy-800);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:8px;padding:8px 12px;margin-top:12px;word-break:break-all}
+.doc-row span{color:var(--muted);font-size:.72rem;flex:none}
+.media-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+.shot{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:0}
+.shot img{width:100%;height:172px;object-fit:cover;display:block}
+.shot figcaption{font-size:.64rem;color:var(--muted);padding:5px 10px;background:#f7f9fc;text-transform:uppercase;letter-spacing:.09em;font-weight:800}
+
+.charts-row{display:grid;grid-template-columns:3fr 2fr;gap:16px}
+.chart-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+.chart-inner{position:relative;height:292px}
+.chart-inner .nil{display:grid;place-items:center;height:100%;text-align:center}
+.refl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.refl-panel{background:#f5f8fc;border:1px solid var(--line-soft);border-top:3px solid var(--gold-500);border-radius:10px;padding:15px}
+.refl-panel h4{font-family:var(--disp);font-size:.93rem;color:var(--navy-900);margin-bottom:7px}
+.refl-panel p{font-size:.83rem;color:var(--ink)}
+.sig-row{display:flex;justify-content:space-between;gap:26px;margin-top:44px;flex-wrap:wrap}
+.sig{min-width:180px;flex:1}
+.sig-line{border-top:1.5px solid var(--ink);margin-top:52px;padding-top:8px;font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--navy-800);text-align:center}
+.sig-line small{display:block;color:var(--muted);font-weight:500;margin-top:2px;text-transform:none;letter-spacing:0}
+.sheet-foot{border-top:1px solid var(--line-soft);margin-top:8px;padding:15px 36px;background:#f8fafd;font-size:.7rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+@media(max-width:760px){
+  .charts-row,.refl-grid{grid-template-columns:1fr}
+  .stat-strip{grid-template-columns:repeat(2,1fr)}
+  .fac-grid{grid-template-columns:1fr 1fr}
+  .fac-cell:nth-child(3n){border-right:1px solid #e8edf5}
+  .fac-cell:nth-child(2n){border-right:none}
+  .sheet-body{padding:22px 18px}.sheet-head{padding:20px 18px;flex-wrap:wrap}
+}
+
+/* ══════════════ 9 · FEEDBACK & MOTION ══════════════ */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);background:var(--navy-900);color:#fff;
+  padding:.8rem 1.4rem;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 14px 34px rgba(11,37,69,.4);
+  opacity:0;transition:.35s cubic-bezier(.2,.7,.3,1);z-index:99;border-left:4px solid var(--gold-500);max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.warn{border-left-color:#c0533f}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease, transform .6s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+.site-foot{text-align:center;padding:26px 20px 34px;font-size:.74rem;color:var(--muted)}
+.site-foot b{color:var(--navy-800)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* ══════════════ 10 · PRINT FALLBACK ══════════════ */
+@media print{
+  body{background:#fff}
+  .masthead,.workspace,.cta-row,.report-actions,.site-foot,#toast,.empty-report{display:none!important}
+  #reportZone{margin:0}
+  .sheet{box-shadow:none;border:none;max-width:100%;border-radius:0}
+  @page{margin:8mm}
+}
+</style>
 </head>
 <body>
 
-<header>
-  <img src="YOUR_LOGO_URL_HERE" alt="Guru Nanak College Logo">
-  <h1>GURU NANAK COLLEGE (AUTONOMOUS)</h1>
-  <h2>Faculty ICT Usage Visual Report</h2>
-  <p>A Sikh Minority Institution | Unit of Guru Nanak Educational Society (Regd.)<br>
-  Affiliated to University of Madras | Approved by AICTE | Accredited at "A++" Grade by NAAC<br>
-  Guru Nanak Salai, Velachery, Chennai - 600042</p>
+<!-- ═══════════════ INSTITUTIONAL MASTHEAD ═══════════════ -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <!-- Replace the crest with your official logo if preferred:
+         <img src="logo.png" alt="GNC Logo" style="width:88px"> -->
+    <div class="crest-slot mast-crest"></div>
+    <div class="mast-text">
+      <p class="mast-kicker">Affiliated to the University of Madras · NAAC Accredited · Autonomous Institution</p>
+      <h1>Guru Nanak College <span>(Autonomous)</span></h1>
+      <p class="mast-sub">Guru Nanak Campus, Velachery Road, Chennai – 600 042, Tamil Nadu</p>
+    </div>
+    <div class="mast-badge">
+      <span class="badge-title">ICT Usage Documentation</span>
+      <span class="badge-sub">Internal Quality Assurance Cell</span>
+      <span class="badge-ay">AY 2026 – 27</span>
+    </div>
+  </div>
+  <div class="gold-strip"></div>
 </header>
 
-<!-- Faculty Details -->
-<div class="section">
-  <h2>Faculty Details</h2>
-  <label>Name:</label>
-  <input id="name">
-  
-  <label>Department:</label>
-  <input id="department">
-  
-  <label>Course Title & Code:</label>
-  <input id="course">
-  
-  <label>Batch / Semester / Year:</label>
-  <input id="batch">
-</div>
+<main class="shell">
+  <div class="workspace">
 
-<!-- ICT Tool Entry -->
-<div class="section" id="entries">
-  <h2>ICT Tools / Methods Used</h2>
-</div>
+    <!-- ═══════════════ FORM COLUMN ═══════════════ -->
+    <div class="form-col">
 
-<button onclick="addEntry()">Add ICT Tool Entry</button>
+      <!-- 01 · Faculty Details -->
+      <section class="card reveal">
+        <div class="sec-head">
+          <div class="sec-num">01</div>
+          <div><h2>Faculty Details</h2><p>Basic information about the faculty member and the session.</p></div>
+        </div>
+        <div class="fac-form">
+          <div class="field span2"><label class="label" for="fName">Faculty Name</label>
+            <input type="text" id="fName" placeholder="e.g., Dr. Preetha Raman"></div>
+          <div class="field"><label class="label" for="fDept">Department</label>
+            <input type="text" id="fDept" list="deptList" placeholder="e.g., Computer Science">
+            <datalist id="deptList">
+              <option>Tamil</option><option>English</option><option>Hindi</option><option>Mathematics</option>
+              <option>Physics</option><option>Chemistry</option><option>Botany</option><option>Zoology</option>
+              <option>Biotechnology</option><option>Computer Science</option><option>Information Technology</option>
+              <option>Data Science</option><option>Commerce</option><option>Business Administration</option>
+              <option>Social Work</option><option>Economics</option><option>History</option><option>Psychology</option>
+            </datalist>
+          </div>
+          <div class="field span2"><label class="label" for="fCourse">Course Title</label>
+            <input type="text" id="fCourse" placeholder="e.g., Data Structures"></div>
+          <div class="field"><label class="label" for="fCode">Course Code</label>
+            <input type="text" id="fCode" placeholder="e.g., CS2401"></div>
+          <div class="field"><label class="label" for="fBatch">Batch</label>
+            <input type="text" id="fBatch" placeholder="e.g., 2024 – 27 (B.Sc CS)"></div>
+          <div class="field"><label class="label" for="fSem">Semester</label>
+            <select id="fSem"><option value="">Select…</option><option>Semester I</option><option>Semester II</option><option>Semester III</option><option>Semester IV</option><option>Semester V</option><option>Semester VI</option></select></div>
+          <div class="field"><label class="label" for="fYear">Year</label>
+            <select id="fYear"><option value="">Select…</option><option>Year I</option><option>Year II</option><option>Year III</option></select></div>
+          <div class="field"><label class="label" for="fAY">Academic Year</label>
+            <select id="fAY"><option>2024 – 25</option><option>2025 – 26</option><option selected>2026 – 27</option><option>2027 – 28</option></select></div>
+        </div>
+      </section>
 
-<!-- Faculty Reflection -->
-<div class="section">
-  <h2>Faculty Reflection</h2>
-  <label>Strengths of ICT Integration:</label>
-  <textarea id="strengths"></textarea>
-  
-  <label>Challenges Faced:</label>
-  <textarea id="challenges"></textarea>
-  
-  <label>Future Improvements Planned:</label>
-  <textarea id="future"></textarea>
-  
-  <button onclick="generateReport()">Generate Report</button>
-  <button onclick="downloadPDF()">Download as PDF</button>
-</div>
+      <!-- 02 · ICT Tools / Methods -->
+      <section class="card reveal">
+        <div class="sec-head">
+          <div class="sec-num">02</div>
+          <div><h2>ICT Tools / Methods Used</h2><p>Add one entry for every tool or method deployed in the session.</p></div>
+          <button class="btn btn-gold" id="btnAddTop" type="button">＋ Add ICT Tool Entry</button>
+        </div>
+        <div id="entries"><!-- dynamic entries render here --></div>
+        <button class="add-dashed" id="btnAddBottom" type="button">＋ Add Another ICT Tool Entry</button>
+      </section>
 
-<!-- Report Output -->
-<div class="section" id="reportSection">
-  <h2>Visual Report</h2>
-  <div id="report"></div>
-  <canvas id="chart" width="400" height="200"></canvas>
-  <canvas id="pieChart" width="400" height="200"></canvas>
-</div>
+      <!-- 03 · Faculty Reflection -->
+      <section class="card reveal">
+        <div class="sec-head">
+          <div class="sec-num">03</div>
+          <div><h2>Faculty Reflection</h2><p>A brief reflective note on the ICT-integrated session.</p></div>
+        </div>
+        <div class="field"><label class="label" for="rStrengths">Strengths of ICT Integration</label>
+          <textarea id="rStrengths" rows="3" placeholder="What worked well? Learner engagement, concept clarity, participation…"></textarea></div>
+        <div class="field" style="margin-top:14px"><label class="label" for="rChallenges">Challenges Faced</label>
+          <textarea id="rChallenges" rows="3" placeholder="Connectivity, device access, tool learning curve…"></textarea></div>
+        <div class="field" style="margin-top:14px"><label class="label" for="rImprovements">Future Improvements Planned</label>
+          <textarea id="rImprovements" rows="3" placeholder="New tools to try, flipped sessions, better accessibility…"></textarea></div>
+      </section>
+
+      <div class="cta-row reveal">
+        <button class="btn btn-gold btn-xl" id="btnGenerate" type="button">📊 Generate Report</button>
+        <span class="cta-hint">Builds the full visual report with charts below — exportable as PDF.</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════ LIVE PULSE SIDEBAR ═══════════════ -->
+    <aside class="pulse-col">
+      <div class="card pulse reveal">
+        <div class="pulse-title"><span class="live-dot"></span> Report Pulse</div>
+        <div class="pulse-grid">
+          <div class="pstat"><b id="statEntries">0</b><span>Entries</span></div>
+          <div class="pstat"><b id="statTools">0</b><span>Tools</span></div>
+          <div class="pstat"><b id="statAvg">—</b><span>Avg. Eff.</span></div>
+        </div>
+        <div class="donut-row">
+          <div class="donut" id="modeDonut"><div class="donut-center" id="donutLabel">—</div></div>
+          <div class="legend">
+            <span style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Delivery Mode</span>
+            <span><i style="background:var(--navy-800)"></i>Synchronous · <b id="statSync">0</b></span>
+            <span><i style="background:var(--gold-500)"></i>Asynchronous · <b id="statAsync">0</b></span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btnPulseGen" type="button" style="width:100%">⚡ Generate Report</button>
+        <p class="pulse-tip">Stats update live as you type. The PDF includes every section, proof upload and chart.</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ═══════════════ REPORT OUTPUT ZONE ═══════════════ -->
+  <section id="reportZone" class="reveal">
+    <div class="empty-report">
+      <span class="float-ico">📊</span>
+      <h3>Your visual report will appear here</h3>
+      <p>Fill in the sections above, add your ICT tool entries, then press <b>Generate Report</b>.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <b>Guru Nanak College (Autonomous)</b> · Guru Nanak Campus, Velachery Road, Chennai – 600 042<br>
+  Internal Quality Assurance Cell · Faculty ICT Usage Documentation Portal
+</footer>
+
+<div id="toast" class="toast" role="status"></div>
+
+<!-- ═══════════════ LIBRARIES ═══════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <script>
-let data = [];
+/* ══════════════════════════════════════════════════════════
+   FACULTY ICT USAGE VISUAL REPORT · GURU NANAK COLLEGE
+   ══════════════════════════════════════════════════════════ */
 
-function addEntry() {
-  const container = document.createElement('div');
-  container.className = "card";
-  container.innerHTML = `
-    <label>ICT Method / Tool:</label>
-    <select class="tool">
-      <option value="LMS (Moodle, Google Classroom)">LMS (Moodle, Google Classroom)</option>
-      <option value="Presentation Tools (PPT, Prezi, Canva)">Presentation Tools (PPT, Prezi, Canva)</option>
-      <option value="Online Assessment Tools (Google Forms, Kahoot, Quizizz)">Online Assessment Tools (Google Forms, Kahoot, Quizizz)</option>
-      <option value="Video Conferencing (Zoom, MS Teams, Google Meet)">Video Conferencing (Zoom, MS Teams, Google Meet)</option>
-      <option value="Digital Content (YouTube, Recorded Lectures, Podcasts)">Digital Content (YouTube, Recorded Lectures, Podcasts)</option>
-      <option value="Interactive Tools (Padlet, Mentimeter, Jamboard)">Interactive Tools (Padlet, Mentimeter, Jamboard)</option>
-      <option value="Generic Tools (Simulation & Modelling Software)">Generic Tools (Simulation & Modelling Software)</option>
-      <option value="Open Educational Resources (NPTEL, SWAYAM, Blogs, NDL)">Open Educational Resources (NPTEL, SWAYAM, Blogs, NDL)</option>
-      <option value="Other">Other</option>
-    </select>
-    
-    <label>Purpose of Use:</label>
-    <textarea class="purpose"></textarea>
-    
-    <label>Effectiveness (1–10):</label>
-    <select class="effectiveness">
-      ${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
-    </select>
-    
-    <label>Mode:</label>
-    <select class="mode">
-      <option value="Synchronous">Synchronous</option>
-      <option value="Asynchronous">Asynchronous</option>
-    </select>
-    
-    <label>Proof Link:</label>
-    <input class="link">
-    
-    <label>Upload Screenshot Proof:</label>
-    <input class="screenshot" type="file" accept="image/*">
-    
-    <label>Upload Photo Proof:</label>
-    <input class="photo" type="file" accept="image/*">
-    
-    <label>Upload Student Activity Document (PDF/DOCX) [Optional]:</label>
-    <input class="studentDoc" type="file" accept=".pdf,.doc,.docx">
-  `;
-  document.getElementById('entries').appendChild(container);
+/* ---------- helpers ---------- */
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const truncate = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+const hexToRgba = h => { const n = parseInt(h.slice(1), 16); return `rgba(${n>>16&255},${n>>8&255},${n&255},.1)`; };
+const todayStr = () => new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
+
+let toastTimer;
+function toast(msg, type = 'info'){
+  const t = $('#toast'); t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3400);
 }
 
-function generateReport() {
-  data = [];
-  const entries = document.querySelectorAll('#entries .card');
-  entries.forEach(entry => {
-    const tool = entry.querySelector('.tool').value;
-    const purpose = entry.querySelector('.purpose').value;
-    const effectiveness = parseInt(entry.querySelector('.effectiveness').value);
-    const mode = entry.querySelector('.mode').value;
-    const link = entry.querySelector('.link').value;
-    const screenshot = entry.querySelector('.screenshot').files[0];
-    const photo = entry.querySelector('.photo').files[0];
-    const studentDoc = entry.querySelector('.studentDoc').files[0];
-    data.push({ tool, purpose, effectiveness, mode, link, screenshot, photo, studentDoc: studentDoc ? studentDoc.name : null });
-  });
-
-  const reportDiv = document.getElementById('report');
-  reportDiv.innerHTML = `
-    <div class="card">
-      <h3>Faculty Details</h3>
-      <p><strong>Name:</strong> ${document.getElementById('name').value}</p>
-      <p><strong>Department:</strong> ${document.getElementById('department').value}</p>
-      <p><strong>Course:</strong> ${document.getElementById('course').value}</p>
-      <p><strong>Batch/Semester/Year:</strong> ${document.getElementById('batch').value}</p>
-    </div>
-  `;
-
-  data.forEach(item => {
-    reportDiv.innerHTML += `
-      <div class="card">
-        <h3>${item.tool}</h3>
-        <p><strong>Purpose:</strong> ${item.purpose}</p>
-       function generateReport() {
-  const reportDiv = document.getElementById('report');
-  reportDiv.innerHTML = `
-    <div class="card">
-      <h3>Faculty Details</h3>
-      <p><strong>Name:</strong> ${document.getElementById('name').value}</p>
-      <p><strong>Department:</strong> ${document.getElementById('department').value}</p>
-      <p><strong>Course:</strong> ${document.getElementById('course').value}</p>
-      <p><strong>Batch/Semester/Year:</strong> ${document.getElementById('batch').value}</p>
-    </div>
-  `;
-
-  data.forEach(item => {
-    reportDiv.innerHTML += `
-      <div class="card">
-        <h3>${item.tool}</h3>
-        <p><strong>Purpose:</strong> ${item.purpose}</p>
-        <p><strong>Effectiveness:</strong> ${item.effectiveness}/10</p>
-        <p><strong>Mode:</strong> ${item.mode}</p>
-        ${item.link ? `<p><strong>Proof Link:</strong> <a href="${item.link}" target="_blank">${item.link}</a></p>` : ''}
-        ${item.screenshot ? `<img src="${item.screenshot}" width="200" alt="Screenshot Proof">` : ''}
-        ${item.photo ? `<img src="${item.photo}" width="200" alt="Photo Proof">` : ''}
-        ${item.studentDoc ? `<p><strong>Student Activity Document:</strong> ${item.studentDoc}</p>` : ''}
-      </div>`;
-  });
-
-  reportDiv.innerHTML += `
-    <div class="card">
-      <h3>Faculty Reflection</h3>
-      <p><strong>Strengths:</strong> ${document.getElementById('strengths').value}</p>
-      <p><strong>Challenges:</strong> ${document.getElementById('challenges').value}</p>
-      <p><strong>Future Improvements:</strong> ${document.getElementById('future').value}</p>
-    </div>
-  `;
-
-  renderCharts();
+/* ---------- college crest (swap with <img> of official logo if desired) ---------- */
+const CREST_SVG = `
+<svg viewBox="0 0 120 132" role="img" aria-label="Guru Nanak College emblem">
+  <path d="M60 4 L112 20 V64 C112 96 90 116 60 128 C30 116 8 96 8 64 V20 Z" fill="#13315c" stroke="#e8a020" stroke-width="4"/>
+  <path d="M60 14 L102 27 V63 C102 90 84 107 60 117 C36 107 18 90 18 63 V27 Z" fill="none" stroke="rgba(232,160,32,.45)" stroke-width="1.5"/>
+  <path d="M60 24 C64 30 68 33 68 39 C68 44 64 47 60 47 C56 47 52 44 52 39 C52 33 56 30 60 24 Z" fill="#e8a020"/>
+  <path d="M60 32 C62 35 63.5 36.5 63.5 39.5 C63.5 42 62 43.5 60 43.5 C58 43.5 56.5 42 56.5 39.5 C56.5 36.5 58 35 60 32 Z" fill="#fff3d6"/>
+  <path d="M30 62 C40 55 52 55 60 61 C68 55 80 55 90 62 V84 C80 77 68 77 60 83 C52 77 40 77 30 84 Z" fill="#f7edd8" stroke="#e8a020" stroke-width="2"/>
+  <path d="M60 61 V83" stroke="#c98f1b" stroke-width="2"/>
+  <path d="M36 65 C43 61 50 61 56 64 M36 71 C43 67 50 67 56 70 M64 64 C70 61 77 61 84 65 M64 70 C70 67 77 67 84 71" stroke="#b98a2a" stroke-width="1.6" fill="none"/>
+  <text x="60" y="102" text-anchor="middle" font-family="Georgia,serif" font-size="15" font-weight="bold" fill="#f4e9d0" letter-spacing="2">GNC</text>
+  <text x="60" y="114" text-anchor="middle" font-family="Georgia,serif" font-size="7.5" fill="#e8a020" letter-spacing="1.5">EST. 1971</text>
+</svg>`;
+function injectCrests(){
+  $$('.crest-slot').forEach(el => { if(!el.dataset.filled){ el.innerHTML = CREST_SVG; el.dataset.filled = '1'; } });
 }
 
-function renderCharts() {
-  const ctx = document.getElementById('chart').getContext('2d');
-  const labels = data.map(d => d.tool);
-  const values = data.map(d => d.effectiveness);
+/* ---------- ICT tool catalogue ---------- */
+const OTHER_VALUE = 'Other (specify below)';
+const TOOL_GROUPS = [
+  ['Learning Management Systems (LMS)', ['Moodle','Google Classroom']],
+  ['Presentation Tools',                ['PowerPoint (PPT)','Prezi','Canva']],
+  ['Online Assessment Tools',           ['Google Forms','Kahoot!','Quizizz']],
+  ['Video Conferencing',                ['Zoom','Microsoft Teams','Google Meet']],
+  ['Digital Content',                   ['YouTube','Recorded Lectures','Podcasts']],
+  ['Interactive Tools',                 ['Padlet','Mentimeter','Jamboard']],
+  ['Generic Tools',                     ['Simulation & Modelling Software']],
+  ['Open Educational Resources (OER)',  ['NPTEL','SWAYAM','Blogs','NDL (National Digital Library)']],
+  ['Other',                             [OTHER_VALUE]]
+];
+const CAT_OF = {};
+TOOL_GROUPS.forEach(([g, ts]) => ts.forEach(t => CAT_OF[t] = g));
 
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Effectiveness Score (1–10)',
-        data: values,
-        backgroundColor: '#0073e6'
-      }]
-    },
-    options: {
-      plugins: {
-        title: { display: true, text: 'Effectiveness of ICT Tools' },
-        legend: { display: true }
+function toolOptionsHTML(){
+  return TOOL_GROUPS.map(([g, ts]) =>
+    `<optgroup label="${esc(g)}">${ts.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</optgroup>`
+  ).join('');
+}
+
+/* ---------- state ---------- */
+let uid = 0;
+const fileStore = new Map();          // key: entryId:kind → {name,dataUrl,size}
+const HINTS = { screenshot:'optional · JPG / PNG', photo:'optional · JPG / PNG', doc:'optional · PDF / DOC / DOCX' };
+let barChart = null, pieChart = null, reportReady = false;
+
+/* ---------- dynamic entry markup ---------- */
+function uploadMarkup(id, kind, ico, label, hint, accept){
+  return `
+  <div class="upload" data-kind="${kind}">
+    <input type="file" class="file-input" id="f-${id}-${kind}" accept="${accept}" hidden>
+    <button type="button" class="upload-btn" data-browse>
+      <span class="up-ico">${ico}</span>
+      <span><b>${label}</b><small class="up-state">${hint}</small></span>
+    </button>
+    <div class="upload-preview" data-kind="${kind}"></div>
+  </div>`;
+}
+function entryMarkup(id){
+  return `
+  <article class="entry" data-id="${id}">
+    <div class="entry-top">
+      <span class="entry-num">ENTRY <b class="entry-idx">01</b></span>
+      <span class="entry-tool-chip">Tool not selected yet</span>
+      <button type="button" class="js-remove" title="Remove this entry">✕ Remove</button>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label class="label" for="tool-${id}">ICT Method / Tool</label>
+        <select id="tool-${id}" class="tool-select"><option value="">— Select a tool / method —</option>${toolOptionsHTML()}</select>
+        <input type="text" class="tool-other" placeholder="Specify the other tool…">
+      </div>
+      <div class="field">
+        <span class="label">Mode of Delivery</span>
+        <div class="seg" role="radiogroup">
+          <label class="seg-opt"><input type="radio" name="mode-${id}" value="Synchronous" checked><span>Synchronous</span></label>
+          <label class="seg-opt"><input type="radio" name="mode-${id}" value="Asynchronous"><span>Asynchronous</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label class="label" for="purp-${id}">Purpose of Use</label>
+      <textarea id="purp-${id}" rows="2" placeholder="e.g., Live quiz to check understanding of Unit 3 concepts and boost participation…"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label class="label" for="eff-${id}">Effectiveness (1–10)</label>
+        <div class="eff-wrap">
+          <select id="eff-${id}" class="eff-select"><option value="">Select score…</option>${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
+          <span class="eff-badge" hidden></span>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="link-${id}">Proof Link</label>
+        <input id="link-${id}" type="url" placeholder="https://… (recording, class stream, quiz report…)">
+      </div>
+    </div>
+    <div class="uploads">
+      ${uploadMarkup(id,'screenshot','🖥️','Screenshot Proof',HINTS.screenshot,'image/*')}
+      ${uploadMarkup(id,'photo','📷','Photo Proof',HINTS.photo,'image/*')}
+      ${uploadMarkup(id,'doc','📄','Student Activity Document',HINTS.doc,'.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+    </div>
+  </article>`;
+}
+function addEntry(){
+  $('#entries').insertAdjacentHTML('beforeend', entryMarkup('e' + (++uid)));
+  renumber(); updateLiveStats();
+}
+function removeEntry(el){
+  el.classList.add('leaving');
+  ['screenshot','photo','doc'].forEach(k => fileStore.delete(el.dataset.id + ':' + k));
+  setTimeout(() => { el.remove(); renumber(); updateLiveStats(); toast('Entry removed.'); }, 240);
+}
+function renumber(){
+  $$('#entries .entry').forEach((el, i) => { $('.entry-idx', el).textContent = String(i + 1).padStart(2,'0'); });
+}
+
+/* ---------- file uploads ---------- */
+function handleFile(input){
+  const up = input.closest('.upload'), entry = input.closest('.entry');
+  const kind = up.dataset.kind, file = input.files && input.files[0];
+  if(!file) return;
+  if(kind === 'doc' && !/\.(pdf|docx?)$/i.test(file.name)){
+    toast('Only PDF / DOC / DOCX files are allowed for the activity document.', 'warn'); input.value = ''; return;
+  }
+  if(kind !== 'doc' && !file.type.startsWith('image/')){
+    toast('Please choose an image file for this proof.', 'warn'); input.value = ''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, dataUrl: reader.result, size: file.size });
+    renderPreview(entry, kind);
+  };
+  reader.readAsDataURL(file);
+  $('.up-state', up).textContent = '✓ ' + truncate(file.name, 26);
+}
+function renderPreview(entry, kind){
+  const box = $(`.upload-preview[data-kind="${kind}"]`, entry);
+  const rec = fileStore.get(entry.dataset.id + ':' + kind);
+  if(!rec){ box.innerHTML = ''; return; }
+  if(kind === 'doc'){
+    box.innerHTML = `<div class="doc-chip">📄 <span>${esc(rec.name)}</span><button type="button" data-clear data-kind="${kind}" title="Remove">✕</button></div>`;
+  } else {
+    box.innerHTML = `<figure class="thumb"><img src="${rec.dataUrl}" alt="${kind} proof"><figcaption>${kind === 'photo' ? 'Photo proof' : 'Screenshot proof'}</figcaption><button type="button" data-clear data-kind="${kind}" title="Remove">✕</button></figure>`;
+  }
+}
+function clearFile(entry, kind){
+  fileStore.delete(entry.dataset.id + ':' + kind);
+  const up = $(`.upload[data-kind="${kind}"]`, entry);
+  $('.file-input', up).value = '';
+  $('.up-state', up).textContent = HINTS[kind];
+  renderPreview(entry, kind);
+}
+
+/* ---------- effectiveness helpers ---------- */
+function effLevel(v){
+  if(v >= 9) return ['Outstanding','lvl-high'];
+  if(v >= 7) return ['High','lvl-high'];
+  if(v >= 4) return ['Moderate','lvl-mid'];
+  return ['Low','lvl-low'];
+}
+function scoreColor(v){ return v >= 8 ? '#1e7d4f' : v >= 5 ? '#d99a17' : '#c0533f'; }
+function updateEffBadge(sel){
+  const badge = sel.parentElement.querySelector('.eff-badge');
+  if(!sel.value){ badge.hidden = true; return; }
+  const [txt, cls] = effLevel(+sel.value);
+  badge.hidden = false; badge.textContent = `${sel.value} · ${txt}`; badge.className = 'eff-badge ' + cls;
+}
+
+/* ---------- live pulse ---------- */
+function updateLiveStats(){
+  const els = $$('#entries .entry');
+  const scored = []; let sync = 0, asn = 0; const tools = new Set();
+  els.forEach(el => {
+    const tv = $('.tool-select', el).value;
+    if(tv) tools.add(tv === OTHER_VALUE ? ($('.tool-other', el).value.trim() || 'Other') : tv);
+    const ev = $('.eff-select', el).value; if(ev) scored.push(+ev);
+    const m = el.querySelector('input[type=radio]:checked');
+    if(m){ m.value === 'Synchronous' ? sync++ : asn++; }
+  });
+  $('#statEntries').textContent = els.length;
+  $('#statTools').textContent   = tools.size;
+  $('#statSync').textContent    = sync;
+  $('#statAsync').textContent   = asn;
+  const avg = scored.length ? scored.reduce((a,b) => a + b, 0) / scored.length : null;
+  $('#statAvg').textContent = avg ? avg.toFixed(1) : '—';
+  const total = sync + asn, deg = total ? (sync / total) * 360 : 0;
+  $('#modeDonut').style.background = total
+    ? `conic-gradient(var(--navy-800) 0deg ${deg}deg, var(--gold-500) ${deg}deg 360deg)`
+    : 'conic-gradient(#dfe6f0 0deg 360deg)';
+  $('#donutLabel').textContent = total ? Math.round((sync / total) * 100) + '%' : '—';
+}
+
+/* ---------- collect data ---------- */
+function readFaculty(){
+  return {
+    name: $('#fName').value.trim(),  dept: $('#fDept').value.trim(),
+    course: $('#fCourse').value.trim(), code: $('#fCode').value.trim(),
+    batch: $('#fBatch').value.trim(), sem: $('#fSem').value,
+    year: $('#fYear').value, ay: $('#fAY').value
+  };
+}
+function collect(){
+  const raw = $$('#entries .entry').map(el => {
+    const id = el.dataset.id, sel = $('.tool-select', el);
+    const purpose = $('#purp-' + id).value.trim();
+    const effVal  = $('.eff-select', el).value;
+    const link    = $('#link-' + id).value.trim();
+    const get = k => fileStore.get(id + ':' + k) || null;
+    const screenshot = get('screenshot'), photo = get('photo'), doc = get('doc');
+    let tool = 'Not specified', category = '—';
+    if(sel.value === OTHER_VALUE){
+      const o = $('.tool-other', el).value.trim();
+      tool = o ? 'Other — ' + o : 'Other'; category = 'Other';
+    } else if(sel.value){ tool = sel.value; category = CAT_OF[sel.value] || 'Other'; }
+    const mode = el.querySelector('input[type=radio]:checked')?.value || '—';
+    const _empty = !sel.value && !purpose && !effVal && !link && !screenshot && !photo && !doc;
+    return { tool, category, purpose, eff: effVal ? +effVal : null, mode, link, screenshot, photo, doc, _empty };
+  });
+  return raw.filter(e => !e._empty).map((e, i) => ({ ...e, idx: i + 1 }));
+}
+
+/* ---------- report rendering ---------- */
+const shotHTML = (f, cap) => `<figure class="shot"><img src="${f.dataUrl}" alt="${esc(cap)}"><figcaption>${cap}</figcaption></figure>`;
+const nl2br = s => s ? esc(s).replace(/\n/g,'<br>') : '<span class="nil">Not provided</span>';
+
+function buildSheetHTML(d){
+  const { fac, entries, refl, generatedOn } = d;
+  const scored = entries.filter(e => e.eff != null);
+  const avg  = scored.length ? scored.reduce((s,e) => s + e.eff, 0) / scored.length : null;
+  const sync = entries.filter(e => e.mode === 'Synchronous').length;
+  const asn  = entries.length - sync;
+  const ref  = `GNC-ICT/${generatedOn.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const dateStr = generatedOn.toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
+  const timeStr = generatedOn.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+
+  const cell = (l, v) => `<div class="fac-cell"><span>${l}</span><b>${v ? esc(v) : '<span class="nil">Not provided</span>'}</b></div>`;
+  const cells = [
+    cell('Faculty Name', fac.name), cell('Department', fac.dept), cell('Report Reference', ref),
+    cell('Course Title', fac.course), cell('Course Code', fac.code), cell('Batch', fac.batch),
+    cell('Semester', fac.sem), cell('Year', fac.year), cell('Academic Year', fac.ay)
+  ].join('');
+
+  const tile = (label, val, color) =>
+    `<div class="stat-tile" style="border-top:3px solid ${color}"><b>${val}</b><span>${label}</span></div>`;
+
+  const toolsHTML = entries.map(e => {
+    const lvl = e.eff ? effLevel(e.eff) : null;
+    const col = e.eff ? scoreColor(e.eff) : '#9aa7ba';
+    const media = [e.screenshot ? shotHTML(e.screenshot,'Screenshot Proof') : '',
+                   e.photo ? shotHTML(e.photo,'Photo Proof') : ''].filter(Boolean).join('');
+    return `
+    <article class="tool-card">
+      <div class="tc-head">
+        <span class="tc-idx">${e.idx}</span>
+        <h4>${esc(e.tool)}</h4>
+        <span class="tag tag-cat">${esc(e.category)}</span>
+        <span class="tag ${e.mode === 'Asynchronous' ? 'tag-async' : 'tag-sync'}">${esc(e.mode)}</span>
+      </div>
+      ${e.purpose ? `<p class="tc-purpose">${esc(e.purpose).replace(/\n/g,'<br>')}</p>` : ''}
+      <div class="tc-meta">
+        ${e.eff ? `
+          <span class="score-bubble" style="color:${col};border-color:${col};background:${hexToRgba(col)}">${e.eff}</span>
+          <div class="meter-wrap">
+            <span class="mini-label">EFFECTIVENESS · ${lvl[0].toUpperCase()}</span>
+            <div class="meter"><div class="meter-fill" style="width:${e.eff * 10}%;background:${col}"></div></div>
+          </div>` : '<span class="nil">Effectiveness score not provided</span>'}
+      </div>
+      ${e.link ? `<a class="proof-link" href="${esc(e.link)}" target="_blank" rel="noopener">🔗 ${esc(truncate(e.link, 64))}</a>` : ''}
+      ${e.doc ? `<div class="doc-row">📄 <b>${esc(e.doc.name)}</b><span>${Math.max(1, Math.round(e.doc.size / 1024))} KB · Student Activity Document</span></div>` : ''}
+      ${media ? `<div class="media-grid">${media}</div>` : ''}
+    </article>`;
+  }).join('');
+
+  const reflHTML = [
+    ['💪','Strengths of ICT Integration', refl.strengths,    '#1e7d4f'],
+    ['⚠️','Challenges Faced',             refl.challenges,   '#c0533f'],
+    ['🚀','Future Improvements Planned',  refl.improvements, '#1d4e89']
+  ].map(([i, t, x, c]) => `
+    <div class="refl-panel" style="border-top-color:${c}">
+      <h4>${i} ${t}</h4><p>${nl2br(x)}</p>
+    </div>`).join('');
+
+  return `
+  <section class="sheet" id="reportSheet">
+    <header class="sheet-head">
+      <div class="crest crest-slot"></div>
+      <div class="sh-title">
+        <h2>Faculty ICT Usage Visual Report</h2>
+        <p>Guru Nanak College (Autonomous) · Velachery Road, Chennai – 600 042</p>
+        <p class="sh-ref">Ref: ${ref}</p>
+      </div>
+      <div class="gen-stamp">GENERATED ON<b>${dateStr}</b><span>${timeStr} IST</span></div>
+    </header>
+    <div class="sheet-body">
+      <div class="rp-section">
+        <div class="rp-h"><span class="bar"></span><h3>Faculty Details</h3></div>
+        <div class="fac-grid">${cells}</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-h"><span class="bar"></span><h3>Session Snapshot</h3></div>
+        <div class="stat-strip">
+          ${tile('ICT Interventions', entries.length, '#13315c')}
+          ${tile('Avg. Effectiveness', avg ? avg.toFixed(1) + ' / 10' : '—', '#e8a020')}
+          ${tile('Synchronous', sync, '#1d4e89')}
+          ${tile('Asynchronous', asn, '#f4b942')}
+        </div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-h"><span class="bar"></span><h3>ICT Tools &amp; Methods Used</h3>
+          <span class="rp-sub">${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} recorded</span></div>
+        ${toolsHTML}
+      </div>
+      <div class="rp-section">
+        <div class="rp-h"><span class="bar"></span><h3>Visual Analytics</h3></div>
+        <div class="charts-row">
+          <div class="chart-box"><div class="chart-inner">
+            ${scored.length ? '<canvas id="cBar"></canvas>' : '<p class="nil">No effectiveness scores were provided,<br>so the bar chart is unavailable.</p>'}
+          </div></div>
+          <div class="chart-box"><div class="chart-inner"><canvas id="cPie"></canvas></div></div>
+        </div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-h"><span class="bar"></span><h3>Faculty Reflection</h3></div>
+        <div class="refl-grid">${reflHTML}</div>
+      </div>
+      <div class="sig-row">
+        <div class="sig"><div class="sig-line">Faculty Signature<small>${esc(fac.name || 'Name of the Faculty')}</small></div></div>
+        <div class="sig"><div class="sig-line">IQAC Coordinator<small>Internal Quality Assurance Cell</small></div></div>
+        <div class="sig"><div class="sig-line">Date &amp; Place<small>Chennai · ${todayStr()}</small></div></div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <span>System-generated report · Faculty ICT Usage Visual Report</span>
+      <span>Guru Nanak College (Autonomous), Chennai – 600 042</span>
+    </div>
+  </section>`;
+}
+
+function initCharts(d){
+  if(typeof Chart === 'undefined'){ toast('Chart library could not load — check your internet connection.', 'warn'); return; }
+  Chart.defaults.font.family = "'Public Sans', sans-serif";
+  const scored = d.entries.filter(e => e.eff != null);
+
+  if(barChart){ barChart.destroy(); barChart = null; }
+  if(pieChart){ pieChart.destroy(); pieChart = null; }
+
+  if(scored.length && $('#cBar')){
+    barChart = new Chart($('#cBar'), {
+      type: 'bar',
+      data: {
+        labels: scored.map(e => e.tool.length > 22 ? e.tool.slice(0, 21) + '…' : e.tool),
+        datasets: [{
+          label: 'Effectiveness Score (out of 10)',
+          data: scored.map(e => e.eff),
+          backgroundColor: scored.map(e => scoreColor(e.eff)),
+          borderRadius: 6, maxBarThickness: 48, borderSkipped: false
+        }]
       },
-      scales: { y: { beginAtZero: true, max: 10 } }
-    }
-  });
-
-  const syncCount = data.filter(d => d.mode === "Synchronous").length;
-  const asyncCount = data.filter(d => d.mode === "Asynchronous").length;
-  const pieCtx = document.getElementById('pieChart').getContext('2d');
-
-  new Chart(pieCtx, {
-    type: 'pie',
-    data: {
-      labels: ['Synchronous', 'Asynchronous'],
-      datasets: [{
-        data: [syncCount, asyncCount],
-        backgroundColor: ['#ff9933', '#66cc66']
-      }]
-    },
-    options: {
-      plugins: {
-        title: { display: true, text: 'Teaching Mode Distribution' },
-        legend: { position: 'bottom' }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { boxWidth: 14, font: { size: 11 } } },
+          title: { display: true, text: 'Effectiveness Scores of ICT Tools Used',
+                   font: { family: "'Bitter', serif", size: 15, weight: 'bold' }, color: '#13315c', padding: { bottom: 12 } }
+        },
+        scales: {
+          y: { min: 0, max: 10, ticks: { stepSize: 2, font: { size: 11 } }, grid: { color: '#e6ecf5' } },
+          x: { ticks: { font: { size: 10 }, maxRotation: 40 }, grid: { display: false } }
+        }
       }
-    }
-  });
+    });
+  }
+
+  const sync = d.entries.filter(e => e.mode === 'Synchronous').length;
+  const asn  = d.entries.length - sync;
+  if($('#cPie')){
+    pieChart = new Chart($('#cPie'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Synchronous', 'Asynchronous'],
+        datasets: [{ data: [sync, asn], backgroundColor: ['#13315c', '#e8a020'], borderColor: '#fff', borderWidth: 3, hoverOffset: 8 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 11 } } },
+          title: { display: true, text: 'Synchronous vs Asynchronous Distribution',
+                   font: { family: "'Bitter', serif", size: 15, weight: 'bold' }, color: '#13315c', padding: { bottom: 12 } }
+        }
+      }
+    });
+  }
 }
 
-function downloadPDF() {
-  const element = document.getElementById('reportSection');
-  html2pdf().from(element).save("Faculty_ICT_Usage_Report.pdf");
+function generateReport(){
+  const entries = collect();
+  if(!entries.length){ toast('Please add at least one ICT tool entry before generating the report.', 'warn'); return; }
+  const fac  = readFaculty();
+  const refl = { strengths: $('#rStrengths').value.trim(), challenges: $('#rChallenges').value.trim(), improvements: $('#rImprovements').value.trim() };
+  const data = { fac, entries, refl, generatedOn: new Date() };
+
+  $('#reportZone').innerHTML = `
+    <div class="report-actions">
+      <button class="btn btn-ghost" id="btnRegen" type="button">↻ Regenerate</button>
+      <button class="btn btn-ghost" id="btnPrint" type="button">🖨 Print</button>
+      <button class="btn btn-gold"  id="btnPDF"   type="button">⬇ Download PDF</button>
+    </div>` + buildSheetHTML(data);
+
+  injectCrests();
+  initCharts(data);
+  reportReady = true;
+
+  $('#btnPDF').addEventListener('click', downloadPDF);
+  $('#btnPrint').addEventListener('click', () => window.print());
+  $('#btnRegen').addEventListener('click', generateReport);
+
+  setTimeout(() => $('#reportZone').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  toast('Report generated ✔');
 }
+
+/* ---------- PDF export ---------- */
+async function downloadPDF(){
+  if(!reportReady){ toast('Generate the report first.', 'warn'); return; }
+  if(!window.html2canvas || !window.jspdf){ toast('PDF libraries could not load — check your connection, or use Print instead.', 'warn'); return; }
+  const btn = $('#btnPDF'); btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = '⏳ Preparing PDF…';
+  try{
+    const sheet = $('#reportSheet');
+    const canvas = await html2canvas(sheet, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+    const img = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pw = 210, ph = 297;
+    const ih = canvas.height * pw / canvas.width;
+    let left = ih, pos = 0;
+    pdf.addImage(img, 'PNG', 0, pos, pw, ih); left -= ph;
+    while(left > 0){ pos -= ph; pdf.addPage(); pdf.addImage(img, 'PNG', 0, pos, pw, ih); left -= ph; }
+    const name = ($('#fName').value.trim() || 'Faculty').replace(/[^A-Za-z0-9_-]+/g, '_');
+    pdf.save(`GNC_ICT_Report_${name}_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF downloaded ✔');
+  } catch(err){
+    console.error(err);
+    toast('Something went wrong while creating the PDF. Try the Print option.', 'warn');
+  }
+  btn.disabled = false; btn.innerHTML = old;
+}
+
+/* ---------- event wiring ---------- */
+const entriesEl = $('#entries');
+entriesEl.addEventListener('click', e => {
+  const browse = e.target.closest('[data-browse]');
+  if(browse){ $('.file-input', browse.closest('.upload')).click(); return; }
+  const clear = e.target.closest('[data-clear]');
+  if(clear){ clearFile(clear.closest('.entry'), clear.dataset.kind); return; }
+  const rm = e.target.closest('.js-remove');
+  if(rm){ removeEntry(rm.closest('.entry')); }
+});
+entriesEl.addEventListener('change', e => {
+  const t = e.target;
+  if(t.classList.contains('file-input')){ handleFile(t); }
+  else if(t.classList.contains('tool-select')){
+    const entry = t.closest('.entry');
+    entry.classList.toggle('is-other', t.value === OTHER_VALUE);
+    $('.entry-tool-chip', entry).textContent = t.value ? (t.value === OTHER_VALUE ? 'Other (specify)' : t.value) : 'Tool not selected yet';
+  }
+  else if(t.classList.contains('eff-select')){ updateEffBadge(t); }
+  updateLiveStats();
+});
+entriesEl.addEventListener('input', e => {
+  const t = e.target;
+  if(t.classList.contains('tool-other')){
+    $('.entry-tool-chip', t.closest('.entry')).textContent = t.value.trim() ? 'Other — ' + t.value.trim() : 'Other (specify)';
+  }
+  updateLiveStats();
+});
+
+$('#btnAddTop').addEventListener('click', addEntry);
+$('#btnAddBottom').addEventListener('click', addEntry);
+$('#btnGenerate').addEventListener('click', generateReport);
+$('#btnPulseGen').addEventListener('click', generateReport);
+
+/* scroll reveals + masthead shadow */
+const io = new IntersectionObserver(es => es.forEach(x => {
+  if(x.isIntersecting){ x.target.classList.add('in'); io.unobserve(x.target); }
+}), { threshold: .1 });
+$$('.reveal').forEach(el => io.observe(el));
+addEventListener('scroll', () => document.body.classList.toggle('scrolled', scrollY > 10), { passive: true });
+
+/* boot */
+injectCrests();
+addEntry();               // start with one ready entry
+updateLiveStats();
 </script>
 </body>
 </html>
-                                    
