@@ -236,10 +236,10 @@ select{cursor:pointer}
 .rp-sub{margin-left:auto;font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .nil{color:#93a1b5;font-style:italic;font-weight:400}
 
-.fac-grid{display:grid;grid-template-columns:repeat(3,1fr);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:12px;overflow:hidden}
+.fac-grid{display:grid;grid-template-columns:repeat(2,1fr);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:12px;overflow:hidden}
 .fac-cell{padding:12px 16px;border-bottom:1px solid #e8edf5;border-right:1px solid #e8edf5}
-.fac-cell:nth-child(3n){border-right:none}
-.fac-cell:nth-last-child(-n+3){border-bottom:none}
+.fac-cell:nth-child(2n){border-right:none}
+.fac-cell:nth-last-child(-n+2){border-bottom:none}
 .fac-cell span{display:block;font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .fac-cell b{font-size:.9rem;color:var(--navy-900)}
 
@@ -268,8 +268,8 @@ select{cursor:pointer}
 .doc-row{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--navy-800);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:8px;padding:8px 12px;margin-top:12px;word-break:break-all}
 .doc-row span{color:var(--muted);font-size:.72rem;flex:none}
 .media-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
-.shot{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:0}
-.shot img{width:100%;height:260px;object-fit:cover;display:block}
+.shot{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:0;max-width:420px}
+.shot img{width:100%;height:190px;object-fit:cover;display:block}
 .shot figcaption{font-size:.64rem;color:var(--muted);padding:5px 10px;background:#f7f9fc;text-transform:uppercase;letter-spacing:.09em;font-weight:800}
 
 .charts-row{display:grid;grid-template-columns:3fr 2fr;gap:16px}
@@ -289,9 +289,6 @@ select{cursor:pointer}
 @media(max-width:760px){
   .charts-row,.refl-grid{grid-template-columns:1fr}
   .stat-strip{grid-template-columns:repeat(2,1fr)}
-  .fac-grid{grid-template-columns:1fr 1fr}
-  .fac-cell:nth-child(3n){border-right:1px solid #e8edf5}
-  .fac-cell:nth-child(2n){border-right:none}
   .sheet-body{padding:22px 18px}.sheet-head{padding:20px 18px;flex-wrap:wrap}
 }
 
@@ -730,9 +727,10 @@ function buildSheetHTML(d){
 
   const cell = (l, v) => `<div class="fac-cell"><span>${l}</span><b>${v ? esc(v) : '<span class="nil">Not provided</span>'}</b></div>`;
   const cells = [
-    cell('Faculty Name', fac.name), cell('Department', fac.dept), cell('Report Reference', ref),
-    cell('Course Title', fac.course), cell('Course Code', fac.code), cell('Batch', fac.batch),
-    cell('Semester', fac.sem), cell('Year', fac.year), cell('Academic Year', fac.ay)
+    cell('Faculty Name', fac.name), cell('Department', fac.dept),
+    cell('Course Title', fac.course), cell('Course Code', fac.code),
+    cell('Batch', fac.batch), cell('Semester', fac.sem),
+    cell('Year', fac.year), cell('Academic Year', fac.ay)
   ].join('');
 
   const tile = (label, val, color) =>
@@ -899,7 +897,7 @@ function generateReport(){
   $('#btnPDF').addEventListener('click', downloadPDF);
   $('#btnPrint').addEventListener('click', () => window.print());
   $('#btnRegen').addEventListener('click', generateReport);
-  $('#btnSave').addEventListener('click', () => saveToDatabase(data));
+  $('#btnSave').addEventListener('click', (ev) => { ev.preventDefault(); saveToDatabase(data); });
 
   setTimeout(() => $('#reportZone').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   toast('Report generated ✔');
@@ -908,34 +906,36 @@ function generateReport(){
 /* ---------- save to database ---------- */
 async function saveToDatabase(data){
   const statusEl = $('#saveStatus');
+  const btn = $('#btnSave');
   statusEl.className = 'save-status';
   statusEl.textContent = '';
+  if(btn) btn.disabled = true;
 
-  if (!db) {
-    statusEl.textContent = 'Database not connected yet — add your Firebase config near the top of the file (see setup guide).';
-    statusEl.classList.add('err');
-    return;
-  }
-
-  // Note: image files are NOT stored in the database. Firestore documents
-  // are capped at 1MB and photo uploads blow past that fast. Only proof
-  // links and file names are saved — use Firebase Storage if you need the
-  // actual image bytes stored too.
-  const record = {
-    faculty: data.fac,
-    entries: data.entries.map(e => ({
-      tool: e.tool, category: e.category, purpose: e.purpose, effectiveness: e.eff,
-      mode: e.mode, link: e.link,
-      screenshotFileName: e.screenshot ? e.screenshot.name : null,
-      photoFileName: e.photo ? e.photo.name : null,
-      studentDocFileName: e.doc ? e.doc.name : null
-    })),
-    reflection: data.refl,
-    submittedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  const btn = $('#btnSave'); btn.disabled = true;
   try {
+    if (!db) {
+      throw new Error('Database not connected — Firebase config still has placeholder values. See the setup guide.');
+    }
+    if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.firestore.FieldValue) {
+      throw new Error('Firebase library did not fully load — check your internet connection and reload the page.');
+    }
+
+    // Note: image files are NOT stored in the database. Firestore documents
+    // are capped at 1MB and photo uploads blow past that fast. Only proof
+    // links and file names are saved — use Firebase Storage if you need the
+    // actual image bytes stored too.
+    const record = {
+      faculty: data.fac,
+      entries: data.entries.map(e => ({
+        tool: e.tool, category: e.category, purpose: e.purpose, effectiveness: e.eff,
+        mode: e.mode, link: e.link,
+        screenshotFileName: e.screenshot ? e.screenshot.name : null,
+        photoFileName: e.photo ? e.photo.name : null,
+        studentDocFileName: e.doc ? e.doc.name : null
+      })),
+      reflection: data.refl,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
     await db.collection('facultyICTReports').add(record);
     statusEl.textContent = 'Saved to database.';
     statusEl.classList.add('ok');
@@ -943,8 +943,10 @@ async function saveToDatabase(data){
   } catch (e) {
     statusEl.textContent = 'Save failed: ' + e.message;
     statusEl.classList.add('err');
+    toast('Save failed — see the message below the buttons', 'warn');
+  } finally {
+    if(btn) btn.disabled = false;
   }
-  btn.disabled = false;
 }
 
 /* ---------- PDF export ---------- */
