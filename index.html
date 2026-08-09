@@ -236,10 +236,10 @@ select{cursor:pointer}
 .rp-sub{margin-left:auto;font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .nil{color:#93a1b5;font-style:italic;font-weight:400}
 
-.fac-grid{display:grid;grid-template-columns:repeat(2,1fr);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:12px;overflow:hidden}
+.fac-grid{display:grid;grid-template-columns:repeat(3,1fr);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:12px;overflow:hidden}
 .fac-cell{padding:12px 16px;border-bottom:1px solid #e8edf5;border-right:1px solid #e8edf5}
-.fac-cell:nth-child(2n){border-right:none}
-.fac-cell:nth-last-child(-n+2){border-bottom:none}
+.fac-cell:nth-child(3n){border-right:none}
+.fac-cell:nth-last-child(-n+3){border-bottom:none}
 .fac-cell span{display:block;font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .fac-cell b{font-size:.9rem;color:var(--navy-900)}
 
@@ -267,7 +267,7 @@ select{cursor:pointer}
 .proof-link:hover{text-decoration:underline}
 .doc-row{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--navy-800);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:8px;padding:8px 12px;margin-top:12px;word-break:break-all}
 .doc-row span{color:var(--muted);font-size:.72rem;flex:none}
-.media-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+.media-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px;justify-items:center}
 .shot{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:0;max-width:420px}
 .shot img{width:100%;height:190px;object-fit:cover;display:block}
 .shot figcaption{font-size:.64rem;color:var(--muted);padding:5px 10px;background:#f7f9fc;text-transform:uppercase;letter-spacing:.09em;font-weight:800}
@@ -289,6 +289,9 @@ select{cursor:pointer}
 @media(max-width:760px){
   .charts-row,.refl-grid{grid-template-columns:1fr}
   .stat-strip{grid-template-columns:repeat(2,1fr)}
+  .fac-grid{grid-template-columns:1fr 1fr}
+  .fac-cell:nth-child(3n){border-right:1px solid #e8edf5}
+  .fac-cell:nth-child(2n){border-right:none}
   .sheet-body{padding:22px 18px}.sheet-head{padding:20px 18px;flex-wrap:wrap}
 }
 
@@ -349,22 +352,18 @@ select{cursor:pointer}
         <div class="fac-form">
           <div class="field span2"><label class="label" for="fName">Faculty Name</label>
             <input type="text" id="fName" placeholder="e.g., Dr. Preetha Raman"></div>
+          <div class="field"><label class="label" for="fShift">Shift</label>
+            <select id="fShift"><option value="">Select…</option><option>GAS</option><option>Shift-I</option><option>Shift-II</option></select></div>
+          <div class="field"><label class="label" for="fSchool">School</label>
+            <select id="fSchool"><option value="">Select…</option></select></div>
           <div class="field"><label class="label" for="fDept">Department</label>
-            <input type="text" id="fDept" list="deptList" placeholder="e.g., Computer Science">
-            <datalist id="deptList">
-              <option>Tamil</option><option>English</option><option>Hindi</option><option>Mathematics</option>
-              <option>Physics</option><option>Chemistry</option><option>Botany</option><option>Zoology</option>
-              <option>Biotechnology</option><option>Computer Science</option><option>Information Technology</option>
-              <option>Data Science</option><option>Commerce</option><option>Business Administration</option>
-              <option>Social Work</option><option>Economics</option><option>History</option><option>Psychology</option>
-            </datalist>
-          </div>
+            <select id="fDept" disabled><option value="">Select a school first…</option></select></div>
           <div class="field span2"><label class="label" for="fCourse">Course Title</label>
             <input type="text" id="fCourse" placeholder="e.g., Data Structures"></div>
           <div class="field"><label class="label" for="fCode">Course Code</label>
             <input type="text" id="fCode" placeholder="e.g., CS2401"></div>
           <div class="field"><label class="label" for="fBatch">Batch</label>
-            <input type="text" id="fBatch" placeholder="e.g., 2024 – 27 (B.Sc CS)"></div>
+            <select id="fBatch"><option value="">Select…</option></select></div>
           <div class="field"><label class="label" for="fSem">Semester</label>
             <select id="fSem"><option value="">Select…</option><option>Semester I</option><option>Semester II</option><option>Semester III</option><option>Semester IV</option><option>Semester V</option><option>Semester VI</option></select></div>
           <div class="field"><label class="label" for="fYear">Year</label>
@@ -457,18 +456,23 @@ select{cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
- const firebaseConfig = {
-  apiKey: "AIzaSyCxJyYpAOLqokkFfL9KW6RkQJc2w-eJS18",
-  authDomain: "faculty-ict-report.firebaseapp.com",
-  projectId: "faculty-ict-report",
-  storageBucket: "faculty-ict-report.firebasestorage.app",
-  messagingSenderId: "447012178353",
-  appId: "1:447012178353:web:a39e350036e1e6e9205590"
+  const firebaseConfig = {
+    apiKey: "AIzaSyCxJyYpAOLqokkFfL9KW6RkQJc2w-eJS18",
+    authDomain: "faculty-ict-report.firebaseapp.com",
+    projectId: "faculty-ict-report",
+    storageBucket: "faculty-ict-report.firebasestorage.app",
+    messagingSenderId: "447012178353",
+    appId: "1:447012178353:web:a39e350036e1e6e9205590"
   };
   let db = null;
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
+    // Some college/office WiFi networks and firewalls block Firestore's
+    // normal real-time streaming connection, which makes writes hang
+    // forever with no error. Forcing long-polling makes it behave like a
+    // plain HTTP request instead, which gets through those networks.
+    db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
   } catch (e) {
     console.warn("Firebase not configured yet:", e.message);
   }
@@ -505,6 +509,37 @@ function injectCrests(){
       el.dataset.filled = '1';
     }
   });
+}
+
+/* ---------- Schools & Departments (Guru Nanak College) ----------
+   Reconstructed from gurunanakcollege.edu.in — the six schools are
+   confirmed directly from the site. Department names came from news/
+   events pages rather than one official master list, so double-check
+   these once live and tell me if anything needs a correction. */
+const SCHOOL_DEPTS = {
+  'School of Languages': ['Tamil','English (Language)','Hindi'],
+  'School of Sciences': ['Mathematics','Allied Mathematics','Physics','Chemistry','Plant Biology & Plant Biotechnology','Advanced Zoology & Biotechnology'],
+  'School of Humanities': ['English Literature (B.A. English)','History','Economics','Political Science','Sociology','Social Work','Psychology'],
+  'School of Commerce': ['Commerce (General)','Commerce (Accounting & Finance)','Corporate Secretaryship','Bank Management'],
+  'School of Management': ['Business Administration (BBA)','BBA Retail Management','Marketing Management','MBA'],
+  'School of Information Technology': ['Information Technology','MCA','Computer Science','Computer Science with Artificial Intelligence','Computer Applications (BCA)','Data Science']
+};
+function schoolOptionsHTML(){
+  return Object.keys(SCHOOL_DEPTS).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+}
+function deptOptionsHTML(school){
+  return (SCHOOL_DEPTS[school] || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+}
+
+/* ---------- Batch (entering-cohort year range) ---------- */
+function batchOptionsHTML(){
+  const startYear = 2022, count = 9; // covers current + a few years either side
+  let out = '';
+  for(let i = 0; i < count; i++){
+    const y = startYear + i;
+    out += `<option>${y} – ${y + 3}</option>`;
+  }
+  return out;
 }
 
 /* ---------- ICT tool catalogue ---------- */
@@ -685,7 +720,7 @@ function updateLiveStats(){
 /* ---------- collect data ---------- */
 function readFaculty(){
   return {
-    name: $('#fName').value.trim(),  dept: $('#fDept').value.trim(),
+    name: $('#fName').value.trim(), shift: $('#fShift').value.trim(), school: $('#fSchool').value.trim(), dept: $('#fDept').value.trim(),
     course: $('#fCourse').value.trim(), code: $('#fCode').value.trim(),
     batch: $('#fBatch').value.trim(), sem: $('#fSem').value,
     year: $('#fYear').value, ay: $('#fAY').value
@@ -727,10 +762,10 @@ function buildSheetHTML(d){
 
   const cell = (l, v) => `<div class="fac-cell"><span>${l}</span><b>${v ? esc(v) : '<span class="nil">Not provided</span>'}</b></div>`;
   const cells = [
-    cell('Faculty Name', fac.name), cell('Department', fac.dept),
-    cell('Course Title', fac.course), cell('Course Code', fac.code),
-    cell('Batch', fac.batch), cell('Semester', fac.sem),
-    cell('Year', fac.year), cell('Academic Year', fac.ay)
+    cell('Faculty Name', fac.name), cell('Shift', fac.shift), cell('School', fac.school),
+    cell('Department', fac.dept), cell('Course Title', fac.course), cell('Course Code', fac.code),
+    cell('Batch', fac.batch), cell('Semester', fac.sem), cell('Year', fac.year),
+    cell('Academic Year', fac.ay)
   ].join('');
 
   const tile = (label, val, color) =>
@@ -936,7 +971,10 @@ async function saveToDatabase(data){
       submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
-    await db.collection('facultyICTReports').add(record);
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timed out after 15 seconds — the network may be blocking the database connection.')), 15000)
+    );
+    await Promise.race([ db.collection('facultyICTReports').add(record), timeout ]);
     statusEl.textContent = 'Saved to database.';
     statusEl.classList.add('ok');
     toast('Saved to database ✔');
@@ -1052,8 +1090,29 @@ const io = new IntersectionObserver(es => es.forEach(x => {
 $$('.reveal').forEach(el => io.observe(el));
 addEventListener('scroll', () => document.body.classList.toggle('scrolled', scrollY > 10), { passive: true });
 
+/* ---------- school → department wiring ---------- */
+function populateSchoolDept(){
+  $('#fSchool').innerHTML = '<option value="">Select…</option>' + schoolOptionsHTML();
+  $('#fSchool').addEventListener('change', () => {
+    const school = $('#fSchool').value;
+    const deptSel = $('#fDept');
+    if(!school){
+      deptSel.innerHTML = '<option value="">Select a school first…</option>';
+      deptSel.disabled = true;
+      return;
+    }
+    deptSel.disabled = false;
+    deptSel.innerHTML = '<option value="">Select…</option>' + deptOptionsHTML(school);
+  });
+}
+function populateBatch(){
+  $('#fBatch').innerHTML = '<option value="">Select…</option>' + batchOptionsHTML();
+}
+
 /* boot */
 injectCrests();
+populateSchoolDept();
+populateBatch();
 addEntry();               // start with one ready entry
 updateLiveStats();
 </script>
