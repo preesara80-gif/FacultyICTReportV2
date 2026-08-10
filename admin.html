@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard | Faculty ICT Usage Reports — Guru Nanak College</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700;800&family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --navy-900:#0b2545; --navy-800:#13315c; --navy-700:#1d4e89;
+  --gold-500:#e8a020; --gold-400:#f4b942; --gold-100:#fdf3dc;
+  --ink:#182a44; --muted:#5b6b83; --line:#dde5f0;
+  --disp:'Bitter', Georgia, serif; --body:'Public Sans','Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);color:var(--ink);background:#eef2f7;min-height:100vh}
+.topbar{background:linear-gradient(135deg,#081c38,#13315c 60%,#1d4e89);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:4px solid var(--gold-500)}
+.topbar h1{font-family:var(--disp);font-size:1.15rem}
+.topbar span{font-size:.75rem;color:#cfe0f5;display:block;margin-top:2px}
+.topbar .spacer{flex:1}
+.topbar button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;padding:.5rem 1rem;border-radius:8px;font:600 .82rem var(--body);cursor:pointer}
+.topbar button:hover{background:rgba(255,255,255,.22)}
+
+.wrap{max-width:1200px;margin:0 auto;padding:24px}
+
+/* login screen */
+.login-box{max-width:380px;margin:80px auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:32px;box-shadow:0 10px 30px rgba(11,37,69,.09)}
+.login-box h2{font-family:var(--disp);color:var(--navy-900);margin-bottom:6px}
+.login-box p{font-size:.85rem;color:var(--muted);margin-bottom:20px}
+.login-box label{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-700);display:block;margin-top:14px;margin-bottom:6px}
+.login-box input{width:100%;padding:.65rem .8rem;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.93rem}
+.login-box input:focus{outline:none;border-color:var(--navy-700);box-shadow:0 0 0 3px rgba(29,78,137,.14)}
+.login-box button{width:100%;margin-top:20px;padding:.75rem;border:none;border-radius:9px;background:linear-gradient(135deg,var(--navy-800),var(--navy-700));color:#fff;font:700 .9rem var(--body);cursor:pointer}
+.login-box button:hover{opacity:.92}
+.login-box button:disabled{opacity:.6;cursor:wait}
+.login-err{margin-top:12px;font-size:.8rem;color:#b3402e;font-weight:600}
+.login-note{margin-top:18px;font-size:.72rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:12px}
+
+/* dashboard */
+#dash{display:none}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.stat-tile b{font-family:var(--disp);font-size:1.6rem;color:var(--navy-800);display:block}
+.stat-tile span{font-size:.62rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:800}
+
+.toolbar{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.toolbar .field{display:flex;flex-direction:column;gap:5px;min-width:150px}
+.toolbar label{font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--navy-700)}
+.toolbar select,.toolbar input{padding:.5rem .65rem;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:.85rem}
+.toolbar .grow{flex:1;min-width:200px}
+.toolbar button{padding:.55rem 1.1rem;border-radius:8px;border:none;font:700 .82rem var(--body);cursor:pointer}
+.btn-export{background:linear-gradient(135deg,var(--gold-500),var(--gold-400));color:var(--navy-900)}
+.btn-clear{background:#fff;border:1px solid var(--line)!important;color:var(--navy-800)}
+.btn-refresh{background:var(--navy-800);color:#fff}
+
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+thead th{background:#f4f7fb;text-align:left;padding:10px 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--navy-700);border-bottom:1px solid var(--line)}
+tbody td{padding:10px 12px;font-size:.83rem;border-bottom:1px solid #eef2f7;vertical-align:top}
+tbody tr:hover{background:#f7faff;cursor:pointer}
+.empty-row td{text-align:center;padding:40px;color:var(--muted);font-style:italic}
+.pill{font-size:.62rem;font-weight:800;padding:3px 8px;border-radius:999px;background:#e7eefb;color:var(--navy-700);letter-spacing:.05em}
+
+.detail{display:none;background:#f9fbfd;border:1px solid var(--line);border-radius:0 0 10px 10px;padding:14px 18px;margin-top:-1px}
+.detail.open{display:table-row}
+.detail-inner{font-size:.82rem;line-height:1.6}
+.detail-inner h4{font-family:var(--disp);color:var(--navy-800);margin:10px 0 4px;font-size:.9rem}
+.detail-inner .tool-line{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px}
+.loading{text-align:center;padding:40px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Faculty ICT Usage Reports</h1>
+    <span>Admin Dashboard · Guru Nanak College (Autonomous)</span>
+  </div>
+  <div class="spacer"></div>
+  <button id="btnLogout" style="display:none">Log out</button>
+</div>
+
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div class="login-box" id="loginBox">
+    <h2>Admin Sign In</h2>
+    <p>This dashboard shows every submitted faculty report. Sign in with an authorised admin account.</p>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@gurunanakcollege.edu.in">
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="••••••••">
+    <button id="btnLogin">Sign In</button>
+    <p class="login-err" id="loginErr"></p>
+    <p class="login-note">Don't have an admin account yet? See the setup guide — you need to create one in Firebase Authentication first.</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash">
+    <div class="stat-row">
+      <div class="stat-tile"><b id="sTotal">0</b><span>Total Submissions</span></div>
+      <div class="stat-tile"><b id="sAvg">—</b><span>Avg. Effectiveness</span></div>
+      <div class="stat-tile"><b id="sSync">0</b><span>Synchronous Entries</span></div>
+      <div class="stat-tile"><b id="sAsync">0</b><span>Asynchronous Entries</span></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="field"><label>School</label><select id="fSchool"><option value="">All</option></select></div>
+      <div class="field"><label>Academic Year</label><select id="fAY"><option value="">All</option></select></div>
+      <div class="field grow"><label>Search faculty name</label><input type="text" id="fSearch" placeholder="Type a name…"></div>
+      <button class="btn-clear" id="btnClear" type="button">Clear filters</button>
+      <button class="btn-refresh" id="btnRefresh" type="button">↻ Refresh</button>
+      <button class="btn-export" id="btnExport" type="button">⬇ Export CSV</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Submitted</th><th>Faculty</th><th>Shift</th><th>School</th><th>Department</th>
+          <th>Course</th><th>Batch</th><th>Tools</th><th>Avg. Eff.</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr class="empty-row"><td colspan="9">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ FIREBASE ═══════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  // Same project as index.html. If you ever rotate keys, update both files.
+  const firebaseConfig = {
+    apiKey: "AIzaSyCxJyYpAOLqokkFfL9KW6RkQJc2w-eJS18",
+    authDomain: "faculty-ict-report.firebaseapp.com",
+    projectId: "faculty-ict-report",
+    storageBucket: "faculty-ict-report.firebasestorage.app",
+    messagingSenderId: "447012178353",
+    appId: "1:447012178353:web:a39e350036e1e6e9205590"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
+</script>
+
+<script>
+const $ = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+let allRecords = [];
+
+/* ---------- auth ---------- */
+$('#btnLogin').addEventListener('click', async () => {
+  const email = $('#email').value.trim(), pass = $('#password').value;
+  const btn = $('#btnLogin'), err = $('#loginErr');
+  err.textContent = '';
+  if(!email || !pass){ err.textContent = 'Enter both email and password.'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e){
+    err.textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Sign In';
+});
+$('#btnLogout').addEventListener('click', () => auth.signOut());
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    $('#loginBox').style.display = 'none';
+    $('#dash').style.display = 'block';
+    $('#btnLogout').style.display = 'inline-block';
+    loadRecords();
+  } else {
+    $('#loginBox').style.display = 'block';
+    $('#dash').style.display = 'none';
+    $('#btnLogout').style.display = 'none';
+  }
+});
+
+/* ---------- data loading ---------- */
+async function loadRecords(){
+  $('#rows').innerHTML = '<tr class="empty-row"><td colspan="9">Loading…</td></tr>';
+  try {
+    const snap = await db.collection('facultyICTReports').orderBy('submittedAt', 'desc').get();
+    allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    populateFilterOptions();
+    render();
+  } catch(e){
+    $('#rows').innerHTML = `<tr class="empty-row"><td colspan="9">Could not load records: ${esc(e.message)}</td></tr>`;
+  }
+}
+$('#btnRefresh').addEventListener('click', loadRecords);
+
+function populateFilterOptions(){
+  const schools = [...new Set(allRecords.map(r => r.faculty?.school).filter(Boolean))].sort();
+  const ays = [...new Set(allRecords.map(r => r.faculty?.ay).filter(Boolean))].sort();
+  $('#fSchool').innerHTML = '<option value="">All</option>' + schools.map(s => `<option>${esc(s)}</option>`).join('');
+  $('#fAY').innerHTML = '<option value="">All</option>' + ays.map(a => `<option>${esc(a)}</option>`).join('');
+}
+
+/* ---------- filtering + render ---------- */
+function filtered(){
+  const school = $('#fSchool').value, ay = $('#fAY').value, q = $('#fSearch').value.trim().toLowerCase();
+  return allRecords.filter(r => {
+    if(school && r.faculty?.school !== school) return false;
+    if(ay && r.faculty?.ay !== ay) return false;
+    if(q && !(r.faculty?.name || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+[$('#fSchool'), $('#fAY')].forEach(el => el.addEventListener('change', render));
+$('#fSearch').addEventListener('input', render);
+$('#btnClear').addEventListener('click', () => {
+  $('#fSchool').value = ''; $('#fAY').value = ''; $('#fSearch').value = '';
+  render();
+});
+
+function fmtDate(ts){
+  if(!ts || !ts.toDate) return '—';
+  return ts.toDate().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function render(){
+  const list = filtered();
+  const tbody = $('#rows');
+
+  // summary stats over the filtered set
+  let totalEff = 0, effCount = 0, sync = 0, async_ = 0;
+  list.forEach(r => (r.entries || []).forEach(e => {
+    if(e.effectiveness != null){ totalEff += e.effectiveness; effCount++; }
+    if(e.mode === 'Synchronous') sync++; else if(e.mode === 'Asynchronous') async_++;
+  }));
+  $('#sTotal').textContent = list.length;
+  $('#sAvg').textContent = effCount ? (totalEff / effCount).toFixed(1) : '—';
+  $('#sSync').textContent = sync;
+  $('#sAsync').textContent = async_;
+
+  if(!list.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No records match these filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map((r, i) => {
+    const f = r.faculty || {};
+    const entries = r.entries || [];
+    const avgEff = entries.length ? (entries.reduce((s,e) => s + (e.effectiveness || 0), 0) / entries.filter(e=>e.effectiveness!=null).length || 0).toFixed(1) : '—';
+    const toolNames = entries.map(e => e.tool).join(', ') || '—';
+    return `
+    <tr data-i="${i}">
+      <td>${fmtDate(r.submittedAt)}</td>
+      <td>${esc(f.name || '—')}</td>
+      <td><span class="pill">${esc(f.shift || '—')}</span></td>
+      <td>${esc(f.school || '—')}</td>
+      <td>${esc(f.dept || '—')}</td>
+      <td>${esc(f.course || '—')}</td>
+      <td>${esc(f.batch || '—')}</td>
+      <td>${esc(toolNames)}</td>
+      <td>${avgEff}</td>
+    </tr>
+    <tr class="detail" id="detail-${i}"><td colspan="9"><div class="detail-inner" id="detail-inner-${i}"></div></td></tr>`;
+  }).join('');
+
+  $$('#rows tr[data-i]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const i = tr.dataset.i;
+      const detailRow = $(`#detail-${i}`);
+      const isOpen = detailRow.classList.contains('open');
+      $$('.detail').forEach(d => d.classList.remove('open'));
+      if(!isOpen){
+        detailRow.classList.add('open');
+        $(`#detail-inner-${i}`).innerHTML = buildDetail(list[i]);
+      }
+    });
+  });
+}
+
+function buildDetail(r){
+  const entries = r.entries || [], refl = r.reflection || {};
+  const toolsHTML = entries.map((e, idx) => `
+    <div class="tool-line">
+      <b>${idx+1}. ${esc(e.tool)}</b> — ${esc(e.mode)} · Effectiveness: ${e.effectiveness ?? '—'}/10<br>
+      ${e.purpose ? esc(e.purpose) + '<br>' : ''}
+      ${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.link)}</a><br>` : ''}
+      ${e.screenshotFileName ? `Screenshot: ${esc(e.screenshotFileName)}<br>` : ''}
+      ${e.photoFileName ? `Photo: ${esc(e.photoFileName)}<br>` : ''}
+      ${e.studentDocFileName ? `Document: ${esc(e.studentDocFileName)}` : ''}
+    </div>`).join('') || '<p>No ICT tool entries.</p>';
+
+  return `
+    <h4>ICT Tools Used</h4>${toolsHTML}
+    <h4>Strengths</h4><p>${esc(refl.strengths) || '—'}</p>
+    <h4>Challenges</h4><p>${esc(refl.challenges) || '—'}</p>
+    <h4>Future Improvements</h4><p>${esc(refl.improvements) || '—'}</p>`;
+}
+
+/* ---------- CSV export ---------- */
+function csvCell(v){
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+$('#btnExport').addEventListener('click', () => {
+  const list = filtered();
+  const header = ['Submitted','Faculty Name','Shift','School','Department','Course Title','Course Code','Batch','Semester','Year','Academic Year','Tools Used','Avg Effectiveness','Synchronous Count','Asynchronous Count','Strengths','Challenges','Future Improvements'];
+  const rows = list.map(r => {
+    const f = r.faculty || {}, entries = r.entries || [], refl = r.reflection || {};
+    const sync = entries.filter(e => e.mode === 'Synchronous').length;
+    const async_ = entries.filter(e => e.mode === 'Asynchronous').length;
+    const scored = entries.filter(e => e.effectiveness != null);
+    const avg = scored.length ? (scored.reduce((s,e) => s + e.effectiveness, 0) / scored.length).toFixed(1) : '';
+    const toolsStr = entries.map(e => `${e.tool} (${e.mode}, ${e.effectiveness ?? 'n/a'})`).join('; ');
+    return [fmtDate(r.submittedAt), f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, sync, async_, refl.strengths, refl.challenges, refl.improvements];
+  });
+  const csv = [header, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `GNC_ICT_Reports_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
