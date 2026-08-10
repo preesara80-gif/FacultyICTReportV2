@@ -320,7 +320,9 @@ $('#btnExport').addEventListener('click', () => {
     return [fmtDate(r.submittedAt), f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, sync, async_, refl.strengths, refl.challenges, refl.improvements];
   });
   const csv = [header, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  // Prepend a UTF-8 BOM so Excel correctly reads special characters
+  // (like the – dash in "2025 – 28") instead of showing â€" garbage.
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `GNC_ICT_Reports_${new Date().toISOString().slice(0,10)}.csv`;
