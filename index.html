@@ -123,6 +123,18 @@ select{cursor:pointer}
 .eff-wrap{display:flex;gap:8px;align-items:center}
 .eff-wrap select{flex:1}
 .eff-badge{font-size:.68rem;font-weight:800;padding:5px 10px;border-radius:999px;letter-spacing:.05em;white-space:nowrap}
+.eff-note{font-size:.74rem;color:var(--muted);background:#f0f5fc;border:1px solid #d7e3f5;border-radius:8px;padding:8px 12px;margin-top:12px}
+.feedback-links-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0 20px}
+.feedback-links-box h3{font-family:var(--disp);font-size:1.05rem;color:var(--navy-900);margin-bottom:4px}
+.feedback-links-box > p{font-size:.82rem;color:var(--muted);margin-bottom:14px}
+.feedback-links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.feedback-link-card{border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;background:#fbfcfe}
+.feedback-link-card b{display:block;font-size:.82rem;color:var(--navy-800);margin-bottom:8px}
+.feedback-link-card img{border-radius:6px;border:1px solid var(--line);margin-bottom:8px}
+.fl-url-row{display:flex;gap:6px}
+.fl-url{flex:1;font-size:.68rem;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:#f7f9fc;color:var(--muted)}
+.fl-copy{font-size:.7rem;font-weight:700;padding:5px 9px;border-radius:6px;border:1px solid var(--navy-700);background:#fff;color:var(--navy-700);cursor:pointer}
+.fl-copy:hover{background:var(--navy-700);color:#fff}
 .lvl-high{background:#e3f2e9;color:#1e7d4f}
 .lvl-mid{background:var(--gold-100);color:#a06d0a}
 .lvl-low{background:#fbe9e5;color:#b3402e}
@@ -411,7 +423,7 @@ select{cursor:pointer}
         <div class="pulse-grid">
           <div class="pstat"><b id="statEntries">0</b><span>Entries</span></div>
           <div class="pstat"><b id="statTools">0</b><span>Tools</span></div>
-          <div class="pstat"><b id="statAvg">—</b><span>Avg. Eff.</span></div>
+          <div class="pstat"><b id="statAvg">—</b><span>With Proof</span></div>
         </div>
         <div class="donut-row">
           <div class="donut" id="modeDonut"><div class="donut-center" id="donutLabel">—</div></div>
@@ -610,17 +622,11 @@ function entryMarkup(id){
     </div>
     <div class="grid-2">
       <div class="field">
-        <label class="label" for="eff-${id}">Effectiveness (1–10)</label>
-        <div class="eff-wrap">
-          <select id="eff-${id}" class="eff-select"><option value="">Select score…</option>${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-          <span class="eff-badge" hidden></span>
-        </div>
-      </div>
-      <div class="field">
         <label class="label" for="link-${id}">Proof Link</label>
         <input id="link-${id}" type="url" placeholder="https://… (recording, class stream, quiz report…)">
       </div>
     </div>
+    <p class="eff-note">Effectiveness is no longer entered manually — after saving, each entry gets a student feedback link. The score is calculated from those responses.</p>
     <div class="uploads">
       ${uploadMarkup(id,'screenshot','🖥️','Screenshot Proof',HINTS.screenshot,'image/*')}
       ${uploadMarkup(id,'photo','📷','Photo Proof',HINTS.photo,'image/*')}
@@ -686,12 +692,6 @@ function effLevel(v){
   return ['Low','lvl-low'];
 }
 function scoreColor(v){ return v >= 8 ? '#1e7d4f' : v >= 5 ? '#d99a17' : '#c0533f'; }
-function updateEffBadge(sel){
-  const badge = sel.parentElement.querySelector('.eff-badge');
-  if(!sel.value){ badge.hidden = true; return; }
-  const [txt, cls] = effLevel(+sel.value);
-  badge.hidden = false; badge.textContent = `${sel.value} · ${txt}`; badge.className = 'eff-badge ' + cls;
-}
 
 /* ---------- live pulse ---------- */
 function updateLiveStats(){
@@ -700,7 +700,8 @@ function updateLiveStats(){
   els.forEach(el => {
     const tv = $('.tool-select', el).value;
     if(tv) tools.add(tv === OTHER_VALUE ? ($('.tool-other', el).value.trim() || 'Other') : tv);
-    const ev = $('.eff-select', el).value; if(ev) scored.push(+ev);
+    const hasProof = fileStore.get(el.dataset.id + ':screenshot') || fileStore.get(el.dataset.id + ':photo');
+    if(hasProof) scored.push(1);
     const m = el.querySelector('input[type=radio]:checked');
     if(m){ m.value === 'Synchronous' ? sync++ : asn++; }
   });
@@ -708,8 +709,7 @@ function updateLiveStats(){
   $('#statTools').textContent   = tools.size;
   $('#statSync').textContent    = sync;
   $('#statAsync').textContent   = asn;
-  const avg = scored.length ? scored.reduce((a,b) => a + b, 0) / scored.length : null;
-  $('#statAvg').textContent = avg ? avg.toFixed(1) : '—';
+  $('#statAvg').textContent = els.length ? `${scored.length}/${els.length}` : '—';
   const total = sync + asn, deg = total ? (sync / total) * 360 : 0;
   $('#modeDonut').style.background = total
     ? `conic-gradient(var(--navy-800) 0deg ${deg}deg, var(--gold-500) ${deg}deg 360deg)`
@@ -730,7 +730,6 @@ function collect(){
   const raw = $$('#entries .entry').map(el => {
     const id = el.dataset.id, sel = $('.tool-select', el);
     const purpose = $('#purp-' + id).value.trim();
-    const effVal  = $('.eff-select', el).value;
     const link    = $('#link-' + id).value.trim();
     const get = k => fileStore.get(id + ':' + k) || null;
     const screenshot = get('screenshot'), photo = get('photo'), doc = get('doc');
@@ -740,8 +739,8 @@ function collect(){
       tool = o ? 'Other — ' + o : 'Other'; category = 'Other';
     } else if(sel.value){ tool = sel.value; category = CAT_OF[sel.value] || 'Other'; }
     const mode = el.querySelector('input[type=radio]:checked')?.value || '—';
-    const _empty = !sel.value && !purpose && !effVal && !link && !screenshot && !photo && !doc;
-    return { tool, category, purpose, eff: effVal ? +effVal : null, mode, link, screenshot, photo, doc, _empty };
+    const _empty = !sel.value && !purpose && !link && !screenshot && !photo && !doc;
+    return { tool, category, purpose, eff: null, mode, link, screenshot, photo, doc, _empty };
   });
   return raw.filter(e => !e._empty).map((e, i) => ({ ...e, idx: i + 1 }));
 }
@@ -786,12 +785,7 @@ function buildSheetHTML(d){
       </div>
       ${e.purpose ? `<p class="tc-purpose">${esc(e.purpose).replace(/\n/g,'<br>')}</p>` : ''}
       <div class="tc-meta">
-        ${e.eff ? `
-          <span class="score-bubble" style="color:${col};border-color:${col};background:${hexToRgba(col)}">${e.eff}</span>
-          <div class="meter-wrap">
-            <span class="mini-label">EFFECTIVENESS · ${lvl[0].toUpperCase()}</span>
-            <div class="meter"><div class="meter-fill" style="width:${e.eff * 10}%;background:${col}"></div></div>
-          </div>` : '<span class="nil">Effectiveness score not provided</span>'}
+        <span class="nil">Awaiting student feedback — share the feedback link after saving to see a calculated score here.</span>
       </div>
       ${e.link ? `<a class="proof-link" href="${esc(e.link)}" target="_blank" rel="noopener">🔗 ${esc(truncate(e.link, 64))}</a>` : ''}
       ${e.doc ? `<div class="doc-row">📄 <b>${esc(e.doc.name)}</b><span>${Math.max(1, Math.round(e.doc.size / 1024))} KB · Student Activity Document</span></div>` : ''}
@@ -826,7 +820,7 @@ function buildSheetHTML(d){
         <div class="rp-h"><span class="bar"></span><h3>Session Snapshot</h3></div>
         <div class="stat-strip">
           ${tile('ICT Interventions', entries.length, '#13315c')}
-          ${tile('Avg. Effectiveness', avg ? avg.toFixed(1) + ' / 10' : '—', '#e8a020')}
+          ${tile('Effectiveness', 'Pending feedback', '#e8a020')}
           ${tile('Synchronous', sync, '#1d4e89')}
           ${tile('Asynchronous', asn, '#f4b942')}
         </div>
@@ -954,14 +948,19 @@ async function saveToDatabase(data){
       throw new Error('Firebase library did not fully load — check your internet connection and reload the page.');
     }
 
+    // Pre-generate IDs for the report doc and every entry doc so we can
+    // cross-reference them both ways without a second round trip.
+    const reportRef = db.collection('facultyICTReports').doc();
+    const entryRefs = data.entries.map(() => db.collection('ictEntries').doc());
+
     // Note: image files are NOT stored in the database. Firestore documents
     // are capped at 1MB and photo uploads blow past that fast. Only proof
     // links and file names are saved — use Firebase Storage if you need the
     // actual image bytes stored too.
     const record = {
       faculty: data.fac,
-      entries: data.entries.map(e => ({
-        tool: e.tool, category: e.category, purpose: e.purpose, effectiveness: e.eff,
+      entries: data.entries.map((e, i) => ({
+        entryId: entryRefs[i].id, tool: e.tool, category: e.category, purpose: e.purpose,
         mode: e.mode, link: e.link,
         screenshotFileName: e.screenshot ? e.screenshot.name : null,
         photoFileName: e.photo ? e.photo.name : null,
@@ -971,13 +970,24 @@ async function saveToDatabase(data){
       submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
+    const batch = db.batch();
+    batch.set(reportRef, record);
+    data.entries.forEach((e, i) => {
+      batch.set(entryRefs[i], {
+        reportId: reportRef.id, tool: e.tool, faculty: data.fac.name || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
     const timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Timed out after 15 seconds — the network may be blocking the database connection.')), 15000)
     );
-    await Promise.race([ db.collection('facultyICTReports').add(record), timeout ]);
+    await Promise.race([ batch.commit(), timeout ]);
+
     statusEl.textContent = 'Saved to database.';
     statusEl.classList.add('ok');
     toast('Saved to database ✔');
+    renderFeedbackLinks(data.entries.map((e, i) => ({ tool: e.tool, entryId: entryRefs[i].id })));
   } catch (e) {
     statusEl.textContent = 'Save failed: ' + e.message;
     statusEl.classList.add('err');
@@ -985,6 +995,40 @@ async function saveToDatabase(data){
   } finally {
     if(btn) btn.disabled = false;
   }
+}
+
+/* ---------- feedback links, shown after a successful save ---------- */
+function renderFeedbackLinks(items){
+  const box = document.createElement('div');
+  box.className = 'feedback-links-box';
+  box.innerHTML = `
+    <h3>Student Feedback Links</h3>
+    <p>Share each link (or its QR code) with students right after using that tool. Effectiveness is calculated from their responses — check the admin dashboard to see it update.</p>
+    <div class="feedback-links-grid">
+      ${items.map((it, i) => {
+        const url = new URL('feedback.html', location.href).href + '?entry=' + encodeURIComponent(it.entryId);
+        const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url);
+        return `
+        <div class="feedback-link-card">
+          <b>${i+1}. ${esc(it.tool)}</b>
+          <img src="${qr}" alt="QR code for ${esc(it.tool)} feedback" width="120" height="120">
+          <div class="fl-url-row">
+            <input type="text" readonly value="${esc(url)}" class="fl-url" onclick="this.select()">
+            <button type="button" class="fl-copy" data-url="${esc(url)}">Copy</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  const statusEl = $('#saveStatus');
+  statusEl.insertAdjacentElement('afterend', box);
+  box.querySelectorAll('.fl-copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(btn.dataset.url).then(() => {
+        const old = btn.textContent; btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = old, 1500);
+      });
+    });
+  });
 }
 
 /* ---------- PDF export ---------- */
@@ -1067,7 +1111,6 @@ entriesEl.addEventListener('change', e => {
     entry.classList.toggle('is-other', t.value === OTHER_VALUE);
     $('.entry-tool-chip', entry).textContent = t.value ? (t.value === OTHER_VALUE ? 'Other (specify)' : t.value) : 'Tool not selected yet';
   }
-  else if(t.classList.contains('eff-select')){ updateEffBadge(t); }
   updateLiveStats();
 });
 entriesEl.addEventListener('input', e => {
