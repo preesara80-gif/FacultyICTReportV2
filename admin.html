@@ -156,6 +156,7 @@ const $$ = (s, c = document) => [...c.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 let allRecords = [];
+let feedbackByEntry = {}; // entryId -> array of { clarity, engagement, usefulness }
 
 /* ---------- auth ---------- */
 $('#btnLogin').addEventListener('click', async () => {
@@ -190,8 +191,19 @@ auth.onAuthStateChanged(user => {
 async function loadRecords(){
   $('#rows').innerHTML = '<tr class="empty-row"><td colspan="9">Loading…</td></tr>';
   try {
-    const snap = await db.collection('facultyICTReports').orderBy('submittedAt', 'desc').get();
-    allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const [reportSnap, feedbackSnap] = await Promise.all([
+      db.collection('facultyICTReports').orderBy('submittedAt', 'desc').get(),
+      db.collection('feedbackResponses').get()
+    ]);
+    allRecords = reportSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    feedbackByEntry = {};
+    feedbackSnap.docs.forEach(d => {
+      const f = d.data();
+      if (!f.entryId) return;
+      (feedbackByEntry[f.entryId] ||= []).push(f);
+    });
+
     populateFilterOptions();
     render();
   } catch(e){
@@ -199,6 +211,18 @@ async function loadRecords(){
   }
 }
 $('#btnRefresh').addEventListener('click', loadRecords);
+
+// Averages each criterion across all responses first, then averages those
+// three numbers together — matches the calculation method chosen for this
+// feature. Returns null if there's no feedback yet for this entry.
+function computeEffectiveness(entryId){
+  const responses = feedbackByEntry[entryId];
+  if (!entryId || !responses || !responses.length) return null;
+  const avg = key => responses.reduce((s, r) => s + (r[key] || 0), 0) / responses.length;
+  const clarity = avg('clarity'), engagement = avg('engagement'), usefulness = avg('usefulness');
+  const overall5 = (clarity + engagement + usefulness) / 3;
+  return { count: responses.length, clarity, engagement, usefulness, score10: overall5 * 2 };
+}
 
 function populateFilterOptions(){
   const schools = [...new Set(allRecords.map(r => r.faculty?.school).filter(Boolean))].sort();
@@ -233,10 +257,11 @@ function render(){
   const list = filtered();
   const tbody = $('#rows');
 
-  // summary stats over the filtered set
+  // summary stats over the filtered set — computed from student feedback now
   let totalEff = 0, effCount = 0, sync = 0, async_ = 0;
   list.forEach(r => (r.entries || []).forEach(e => {
-    if(e.effectiveness != null){ totalEff += e.effectiveness; effCount++; }
+    const calc = computeEffectiveness(e.entryId);
+    if (calc){ totalEff += calc.score10; effCount++; }
     if(e.mode === 'Synchronous') sync++; else if(e.mode === 'Asynchronous') async_++;
   }));
   $('#sTotal').textContent = list.length;
@@ -252,7 +277,8 @@ function render(){
   tbody.innerHTML = list.map((r, i) => {
     const f = r.faculty || {};
     const entries = r.entries || [];
-    const avgEff = entries.length ? (entries.reduce((s,e) => s + (e.effectiveness || 0), 0) / entries.filter(e=>e.effectiveness!=null).length || 0).toFixed(1) : '—';
+    const calcs = entries.map(e => computeEffectiveness(e.entryId)).filter(Boolean);
+    const avgEff = calcs.length ? (calcs.reduce((s,c) => s + c.score10, 0) / calcs.length).toFixed(1) : 'Awaiting feedback';
     const toolNames = entries.map(e => e.tool).join(', ') || '—';
     return `
     <tr data-i="${i}">
@@ -285,15 +311,23 @@ function render(){
 
 function buildDetail(r){
   const entries = r.entries || [], refl = r.reflection || {};
-  const toolsHTML = entries.map((e, idx) => `
+  const toolsHTML = entries.map((e, idx) => {
+    const calc = computeEffectiveness(e.entryId);
+    const effLine = calc
+      ? `Effectiveness: <b>${calc.score10.toFixed(1)}/10</b> — based on ${calc.count} student response${calc.count === 1 ? '' : 's'} ` +
+        `(Clarity ${calc.clarity.toFixed(1)}, Engagement ${calc.engagement.toFixed(1)}, Usefulness ${calc.usefulness.toFixed(1)}, each out of 5)`
+      : 'Effectiveness: <i>Awaiting student feedback</i>';
+    return `
     <div class="tool-line">
-      <b>${idx+1}. ${esc(e.tool)}</b> — ${esc(e.mode)} · Effectiveness: ${e.effectiveness ?? '—'}/10<br>
+      <b>${idx+1}. ${esc(e.tool)}</b> — ${esc(e.mode)}<br>
+      ${effLine}<br>
       ${e.purpose ? esc(e.purpose) + '<br>' : ''}
       ${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.link)}</a><br>` : ''}
       ${e.screenshotFileName ? `Screenshot: ${esc(e.screenshotFileName)}<br>` : ''}
       ${e.photoFileName ? `Photo: ${esc(e.photoFileName)}<br>` : ''}
       ${e.studentDocFileName ? `Document: ${esc(e.studentDocFileName)}` : ''}
-    </div>`).join('') || '<p>No ICT tool entries.</p>';
+    </div>`;
+  }).join('') || '<p>No ICT tool entries.</p>';
 
   return `
     <h4>ICT Tools Used</h4>${toolsHTML}
@@ -309,15 +343,19 @@ function csvCell(v){
 }
 $('#btnExport').addEventListener('click', () => {
   const list = filtered();
-  const header = ['Submitted','Faculty Name','Shift','School','Department','Course Title','Course Code','Batch','Semester','Year','Academic Year','Tools Used','Avg Effectiveness','Synchronous Count','Asynchronous Count','Strengths','Challenges','Future Improvements'];
+  const header = ['Submitted','Faculty Name','Shift','School','Department','Course Title','Course Code','Batch','Semester','Year','Academic Year','Tools Used','Avg Effectiveness','Feedback Responses','Synchronous Count','Asynchronous Count','Strengths','Challenges','Future Improvements'];
   const rows = list.map(r => {
     const f = r.faculty || {}, entries = r.entries || [], refl = r.reflection || {};
     const sync = entries.filter(e => e.mode === 'Synchronous').length;
     const async_ = entries.filter(e => e.mode === 'Asynchronous').length;
-    const scored = entries.filter(e => e.effectiveness != null);
-    const avg = scored.length ? (scored.reduce((s,e) => s + e.effectiveness, 0) / scored.length).toFixed(1) : '';
-    const toolsStr = entries.map(e => `${e.tool} (${e.mode}, ${e.effectiveness ?? 'n/a'})`).join('; ');
-    return [fmtDate(r.submittedAt), f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, sync, async_, refl.strengths, refl.challenges, refl.improvements];
+    const calcs = entries.map(e => computeEffectiveness(e.entryId)).filter(Boolean);
+    const avg = calcs.length ? (calcs.reduce((s,c) => s + c.score10, 0) / calcs.length).toFixed(1) : '';
+    const totalResponses = calcs.reduce((s,c) => s + c.count, 0);
+    const toolsStr = entries.map(e => {
+      const calc = computeEffectiveness(e.entryId);
+      return `${e.tool} (${e.mode}, ${calc ? calc.score10.toFixed(1) + '/10 from ' + calc.count + ' resp.' : 'awaiting feedback'})`;
+    }).join('; ');
+    return [fmtDate(r.submittedAt), f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, totalResponses, sync, async_, refl.strengths, refl.challenges, refl.improvements];
   });
   const csv = [header, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
   // Prepend a UTF-8 BOM so Excel correctly reads special characters
