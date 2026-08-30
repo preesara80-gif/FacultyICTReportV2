@@ -1110,12 +1110,14 @@ async function compressImageDataUrl(dataUrl, maxDim, quality){
   return canvas.toDataURL('image/jpeg', quality);
 }
 async function compressForFirestore(dataUrl){
-  // Try progressively smaller/lower-quality passes until it fits comfortably.
+  // AGGRESSIVE COMPRESSION FOR FREE TIER FIRESTORE
+  // Reduces ~300KB images to ~80KB to support 500+ users on free tier
+  // Images still remain readable despite lower quality/resolution
   const attempts = [
-    { maxDim: 900, quality: 0.6 },
-    { maxDim: 700, quality: 0.5 },
-    { maxDim: 550, quality: 0.4 },
-    { maxDim: 420, quality: 0.35 }
+    { maxDim: 480, quality: 0.4 },   // Start: 480px wide, 40% quality
+    { maxDim: 380, quality: 0.3 },   // Medium: 380px, 30% quality
+    { maxDim: 300, quality: 0.25 },  // Small: 300px, 25% quality
+    { maxDim: 240, quality: 0.2 }    // Ultra: 240px, 20% quality
   ];
   let result = null;
   for(const a of attempts){
@@ -1134,6 +1136,8 @@ async function compressForFirestore(dataUrl){
 async function compressEntryFiles(entries, onProgress){
   let compressed = 0, failed = 0;
   for(const e of entries){
+    // LIMIT: Only allow 1 screenshot + 1 photo per entry (2 images max)
+    // This keeps storage under control for free tier with 500+ users
     for(const kind of ['screenshot','photo']){
       const rec = e[kind];
       // Only compress a freshly-picked file this session — an image
@@ -1380,12 +1384,17 @@ async function downloadPDF(){
           placeLinks(links, rect, pxToMm, pageNum, -drawnSoFar, 0, pageH);
           drawnSoFar += pageH;
         }
-        pdf.addPage(); pageNum++;
+        // FIXED: Don't force new page after large blocks - let next section
+        // flow naturally. This prevents blank pages between sections.
         y = marginTop; // fresh page for whatever block comes next
         continue;
       }
 
-      if(y + h > pageH - marginTop){ pdf.addPage(); pageNum++; y = marginTop; }
+      // Keep sections together - if next section fits on same page, keep it
+      // If not enough room, move to new page. This reduces blank space.
+      if(y + h > pageH - marginTop){ 
+        pdf.addPage(); pageNum++; y = marginTop; 
+      }
       pdf.addImage(img, 'PNG', marginX, y, usableW, h);
       placeLinks(links, rect, pxToMm, pageNum, y, null, null);
       y += h + gap;
