@@ -492,7 +492,6 @@ select{cursor:pointer}
      button will show an error instead of silently pretending it worked. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCxJyYpAOLqokkFfL9KW6RkQJc2w-eJS18",
@@ -503,7 +502,6 @@ select{cursor:pointer}
     appId: "1:447012178353:web:a39e350036e1e6e9205590"
   };
   let db = null;
-  let storage = null;
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
@@ -512,7 +510,6 @@ select{cursor:pointer}
     // forever with no error. Forcing long-polling makes it behave like a
     // plain HTTP request instead, which gets through those networks.
     db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
-    storage = firebase.storage();
   } catch (e) {
     console.warn("Firebase not configured yet:", e.message);
   }
@@ -697,7 +694,7 @@ function handleFile(input){
   }
   const reader = new FileReader();
   reader.onload = () => {
-    fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, src: reader.result, size: file.size });
+    fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, src: reader.result, size: file.size, freshPick: true });
     renderPreview(entry, kind);
   };
   reader.readAsDataURL(file);
@@ -1078,58 +1075,85 @@ async function refreshWithFeedback(){
   }
 }
 
-/* ---------- upload proof files to Firebase Storage ----------
-   Firestore documents are capped at 1MB, far too small for photos, so
-   entries only ever stored a filename there. Actual image bytes go to
-   Storage instead — each entry's screenshot/photo/document is uploaded
-   once (skipped if it already has an http(s) URL, meaning it was loaded
-   from a previous save and never replaced), and the resulting download
-   URL is what gets saved on the entry and, in turn, in Firestore. This
-   is what lets a loaded report show its images again without asking the
-   faculty to re-attach anything. */
-// Races any promise against a timeout, rejecting if it doesn't settle in
-// time — used below so a Storage upload that never resolves (e.g. because
-// Storage hasn't been turned on yet in the Firebase console) can't hang
-// the whole save forever. The report itself must always be able to save,
-// with or without images.
-function withTimeout(promise, ms, label){
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timed out')), ms))
-  ]);
+/* ---------- compress images for storage directly in Firestore ----------
+   No Firebase Storage (that needs the paid Blaze plan) — instead, each
+   screenshot/photo is shrunk and re-compressed client-side into a small
+   JPEG, then embedded straight into its ictEntries document as a data:
+   URL. Firestore documents are capped at 1MB, so this stays deliberately
+   conservative: quality steps down repeatedly until each image is safely
+   under COMPRESS_TARGET_BYTES, leaving headroom for two images plus the
+   rest of the entry's fields in one document.
+   PDF/DOCX "Student Activity Document" uploads are NOT covered by this —
+   there's no equivalent client-side compression for those file types, and
+   without Storage there's nowhere else to put them. They stay filename-only
+   forever, the same limitation this app always had, just no longer only
+   for "legacy" records. */
+const COMPRESS_TARGET_BYTES = 140 * 1024; // ~140KB per image after base64 overhead
+function loadImage(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+async function compressImageDataUrl(dataUrl, maxDim, quality){
+  const img = await loadImage(dataUrl);
+  let w = img.naturalWidth, h = img.naturalHeight;
+  if(w > maxDim || h > maxDim){
+    const scale = maxDim / Math.max(w, h);
+    w = Math.round(w * scale); h = Math.round(h * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+async function compressForFirestore(dataUrl){
+  // Try progressively smaller/lower-quality passes until it fits comfortably.
+  const attempts = [
+    { maxDim: 900, quality: 0.6 },
+    { maxDim: 700, quality: 0.5 },
+    { maxDim: 550, quality: 0.4 },
+    { maxDim: 420, quality: 0.35 }
+  ];
+  let result = null;
+  for(const a of attempts){
+    result = await compressImageDataUrl(dataUrl, a.maxDim, a.quality);
+    if(result.length <= COMPRESS_TARGET_BYTES) return result;
+  }
+  return result; // best effort even if the smallest pass is still a bit over
 }
 
-async function uploadEntryFiles(entries, reportId, onProgress){
-  if(!storage) return { uploaded: 0, failed: 0 };
-  let uploaded = 0, failed = 0;
+/* ---------- compress every entry's screenshot/photo before saving ----------
+   Leaves the original full-quality data: URL in fileStore untouched (so
+   this session's own PDF download still uses full quality) and attaches a
+   separate compressed copy to each entry for Firestore, only for images
+   that are freshly picked (data: URLs) — an entry restored from a previous
+   save with data already embedded is left alone unless replaced. */
+async function compressEntryFiles(entries, onProgress){
+  let compressed = 0, failed = 0;
   for(const e of entries){
-    for(const kind of ['screenshot','photo','doc']){
+    for(const kind of ['screenshot','photo']){
       const rec = e[kind];
-      if(!rec || !rec.src || !rec.src.startsWith('data:')) continue; // nothing to upload, or already in Storage
+      // Only compress a freshly-picked file this session — an image
+      // restored from a previous save is already compressed, and running
+      // it back through compression again would just lose more quality
+      // each time a report gets re-saved.
+      if(!rec || !rec.freshPick || !rec.src || !rec.src.startsWith('data:')) continue;
       try {
         if(onProgress) onProgress(rec.name);
-        const blob = await (await fetch(rec.src)).blob();
-        const safeName = rec.name.replace(/[^A-Za-z0-9_.-]+/g, '_');
-        const path = `ictUploads/${reportId}/${e.entryId || 'pending'}/${kind}-${Date.now()}-${safeName}`;
-        const ref = storage.ref().child(path);
-        await withTimeout(
-          ref.put(blob, blob.type ? { contentType: blob.type } : undefined),
-          20000, 'Upload'
-        );
-        rec.src = await withTimeout(ref.getDownloadURL(), 10000, 'Getting download link');
-        uploaded++;
+        rec.compressedSrc = await compressForFirestore(rec.src);
+        compressed++;
       } catch(err){
-        console.warn('Upload failed for', rec.name, err);
+        console.warn('Compression failed for', rec.name, err);
         failed++;
-        // Leave rec.src as the local data: URL — the filename still saves
-        // to Firestore below, so nothing about this entry is lost, it just
-        // won't reappear as an image after a reload until re-attached.
-        // Most common cause: Storage hasn't been enabled yet in the
-        // Firebase console — the report itself will still save correctly.
+        // Filename still saves below either way — this just means the
+        // image itself won't reappear after a reload until re-attached.
       }
     }
   }
-  return { uploaded, failed };
+  return { compressed, failed };
 }
 
 /* ---------- save to database ---------- */
@@ -1162,27 +1186,30 @@ async function saveToDatabase(data){
       e.entryId ? db.collection('ictEntries').doc(e.entryId) : db.collection('ictEntries').doc()
     );
 
-    // Upload any newly-picked screenshot/photo/document files to Storage
-    // before writing the report — mutates data.entries[i].<kind>.src in
-    // place with the resulting download URL (existing http(s) URLs, from
-    // a loaded report the file wasn't replaced in, are left untouched).
-    let uploadResult = { uploaded: 0, failed: 0 };
-    if(statusEl){ statusEl.textContent = 'Uploading proof files…'; }
-    uploadResult = await uploadEntryFiles(data.entries, reportRef.id);
+    // Compress any newly-picked screenshot/photo files before writing —
+    // mutates data.entries[i].<kind>.compressedSrc in place (existing
+    // compressed data from a loaded report, never replaced, is left alone).
+    let compressResult = { compressed: 0, failed: 0 };
+    if(statusEl){ statusEl.textContent = 'Compressing images…'; }
+    compressResult = await compressEntryFiles(data.entries);
 
+    // Image bytes go on each entry's OWN ictEntries document, never on the
+    // shared report document — a report with several entries would blow
+    // straight past Firestore's 1MB-per-document cap otherwise. The report
+    // doc only keeps lightweight filenames/sizes for display and CSV export.
     const record = {
       faculty: data.fac,
       entries: data.entries.map((e, i) => ({
         entryId: entryRefs[i].id, tool: e.tool, category: e.category, purpose: e.purpose,
         mode: e.mode, link: e.link,
         screenshotFileName: e.screenshot ? e.screenshot.name : null,
-        screenshotUrl: e.screenshot && e.screenshot.src && e.screenshot.src.startsWith('http') ? e.screenshot.src : null,
         screenshotSize: e.screenshot ? e.screenshot.size : null,
         photoFileName: e.photo ? e.photo.name : null,
-        photoUrl: e.photo && e.photo.src && e.photo.src.startsWith('http') ? e.photo.src : null,
         photoSize: e.photo ? e.photo.size : null,
+        // Never persisted — no client-side compression equivalent exists for
+        // PDF/DOCX, and there's no Storage to put the full file in. Filename
+        // only, same as this app has always shown for documents.
         studentDocFileName: e.doc ? e.doc.name : null,
-        studentDocUrl: e.doc && e.doc.src && e.doc.src.startsWith('http') ? e.doc.src : null,
         studentDocSize: e.doc ? e.doc.size : null
       })),
       reflection: data.refl,
@@ -1198,6 +1225,16 @@ async function saveToDatabase(data){
     data.entries.forEach((e, i) => {
       const entryPayload = { reportId: reportRef.id, tool: e.tool, faculty: data.fac.name || null };
       if(!e.entryId) entryPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      // Only overwrite image data when a fresh compressed version exists
+      // this save — otherwise leave whatever was there from before intact.
+      if(e.screenshot && e.screenshot.compressedSrc){
+        entryPayload.screenshotData = e.screenshot.compressedSrc;
+        entryPayload.screenshotFileName = e.screenshot.name;
+      }
+      if(e.photo && e.photo.compressedSrc){
+        entryPayload.photoData = e.photo.compressedSrc;
+        entryPayload.photoFileName = e.photo.name;
+      }
       batch.set(entryRefs[i], entryPayload, { merge: true });
     });
 
@@ -1216,8 +1253,8 @@ async function saveToDatabase(data){
     });
 
     statusEl.textContent = (isUpdate ? 'Updated the saved report.' : 'Saved to database.') +
-      (uploadResult.failed ? ` (${uploadResult.failed} file${uploadResult.failed === 1 ? '' : 's'} couldn't upload — filenames were still saved.)` : '');
-    statusEl.classList.add(uploadResult.failed ? 'warn' : 'ok');
+      (compressResult.failed ? ` (${compressResult.failed} image${compressResult.failed === 1 ? '' : 's'} couldn't be compressed — filenames were still saved.)` : '');
+    statusEl.classList.add(compressResult.failed ? 'warn' : 'ok');
     toast(isUpdate ? 'Report updated ✔' : 'Saved to database ✔');
     renderFeedbackLinks(data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })));
     if(btn) btn.textContent = '💾 Update Saved Report';
@@ -1471,6 +1508,18 @@ async function loadSavedReport(id){
     currentReportRef = db.collection('facultyICTReports').doc(id);
     currentReportData = null;
 
+    // Image bytes live on each entry's own ictEntries document, not on the
+    // report itself — fetch them now so screenshots/photos can reappear.
+    // Firestore 'in' queries cap at 10 ids, so chunk if there are more.
+    const entryIds = (r.entries || []).map(e => e.entryId).filter(Boolean);
+    const entryDataById = {};
+    for(let i = 0; i < entryIds.length; i += 10){
+      const chunk = entryIds.slice(i, i + 10);
+      const entrySnap = await db.collection('ictEntries')
+        .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+      entrySnap.docs.forEach(d => { entryDataById[d.id] = d.data(); });
+    }
+
     const f = r.faculty || {};
     $('#fName').value = f.name || '';
     $('#fShift').value = f.shift || '';
@@ -1515,31 +1564,31 @@ async function loadSavedReport(id){
       const modeInput = el.querySelector(`input[type=radio][value="${e.mode}"]`);
       if(modeInput) modeInput.checked = true;
 
-      // Screenshots/photos/documents that were uploaded to Storage come
-      // back with a URL — restore them into the same fileStore the file
-      // picker uses, so they reappear as real previews and flow straight
-      // into the next report/PDF with no re-upload needed.
-      const restore = (kind, url, name, size) => {
-        if(!url) return;
-        fileStore.set(el.dataset.id + ':' + kind, { name: name || kind, src: url, size: size || 0 });
+      // Screenshots/photos come back as compressed data embedded on this
+      // entry's own ictEntries document (fetched above) — restore them into
+      // the same fileStore the file picker uses, so they reappear as real
+      // previews and flow straight into the next report/PDF without asking
+      // for a re-upload. Documents are never restorable — see the note above
+      // compressEntryFiles() for why — so always show a re-attach note there.
+      const entryData = entryDataById[e.entryId] || {};
+      const restore = (kind, src, name, size) => {
+        if(!src) return;
+        fileStore.set(el.dataset.id + ':' + kind, { name: name || kind, src, size: size || 0 });
         renderPreview(el, kind);
         const upEl = el.querySelector(`.upload[data-kind="${kind}"] .up-state`);
         if(upEl) upEl.textContent = '✓ ' + truncate(name || kind, 26);
       };
-      restore('screenshot', e.screenshotUrl, e.screenshotFileName, e.screenshotSize);
-      restore('photo', e.photoUrl, e.photoFileName, e.photoSize);
-      restore('doc', e.studentDocUrl, e.studentDocFileName, e.studentDocSize);
+      restore('screenshot', entryData.screenshotData, e.screenshotFileName, e.screenshotSize);
+      restore('photo', entryData.photoData, e.photoFileName, e.photoSize);
 
-      // Only records saved before Storage support existed have a filename
-      // but no URL — those genuinely need re-attaching to appear again.
       const legacyNotes = [];
-      if(e.screenshotFileName && !e.screenshotUrl) legacyNotes.push('Screenshot: ' + e.screenshotFileName);
-      if(e.photoFileName && !e.photoUrl) legacyNotes.push('Photo: ' + e.photoFileName);
-      if(e.studentDocFileName && !e.studentDocUrl) legacyNotes.push('Document: ' + e.studentDocFileName);
+      if(e.screenshotFileName && !entryData.screenshotData) legacyNotes.push('Screenshot: ' + e.screenshotFileName);
+      if(e.photoFileName && !entryData.photoData) legacyNotes.push('Photo: ' + e.photoFileName);
+      if(e.studentDocFileName) legacyNotes.push('Document: ' + e.studentDocFileName + ' (never re-shown — please re-attach)');
       if(legacyNotes.length){
         const note = document.createElement('p');
         note.className = 'eff-note';
-        note.textContent = 'Saved before file storage was added — re-attach to include in a new PDF: ' + legacyNotes.join(' · ');
+        note.textContent = 'Re-attach to include in a new PDF: ' + legacyNotes.join(' · ');
         $('.uploads', el).insertAdjacentElement('beforebegin', note);
       }
     });
