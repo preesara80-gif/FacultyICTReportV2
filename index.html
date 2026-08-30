@@ -1321,7 +1321,28 @@ async function downloadPDF(){
     // own screenshot, so a chart or card never gets sliced in half by a
     // blind page-height cut. Only a single block taller than one full page
     // gets sliced — everything else moves to a fresh page as a whole unit.
-    const blocks = [$('.sheet-head', sheet), ...$$('.sheet-body > .rp-section', sheet)];
+    // The "ICT Tools & Methods Used" section can hold several entries with
+    // photos, easily taller than one page combined. Capturing it as one
+    // giant image and slicing that blindly by pixel height risks cutting
+    // straight through the middle of a photo. Instead, each tool-card gets
+    // captured as its own block — same atomic fit-or-new-page placement as
+    // every other section, so a single entry (and its photos) always moves
+    // to a new page as one whole unit, never sliced apart from itself.
+    const rawSections = [...sheet.querySelectorAll('.sheet-body > .rp-section')];
+    const blocks = [$('.sheet-head', sheet)];
+    rawSections.forEach(sec => {
+      const cards = sec.querySelectorAll(':scope > .tool-card');
+      if(cards.length){
+        const header = sec.querySelector(':scope > .rp-h');
+        if(header){
+          if(sec.dataset.forceBreak) header.dataset.forceBreak = sec.dataset.forceBreak;
+          blocks.push(header);
+        }
+        cards.forEach(c => blocks.push(c));
+      } else {
+        blocks.push(sec);
+      }
+    });
     let y = marginTop;
     // jsPDF's addPage() always makes the new page "current" — we track that
     // page number ourselves in lockstep with every addPage() call below, so
@@ -1384,9 +1405,14 @@ async function downloadPDF(){
           placeLinks(links, rect, pxToMm, pageNum, -drawnSoFar, 0, pageH);
           drawnSoFar += pageH;
         }
-        // FIXED: Don't force new page after large blocks - let next section
-        // flow naturally. This prevents blank pages between sections.
-        y = marginTop; // fresh page for whatever block comes next
+        // A sliced block always ends its tail on whatever page it lands
+        // on — the next block MUST start on a fresh page, or it gets drawn
+        // directly on top of that tail end. (A prior edit removed this and
+        // called it an optimization; it wasn't — it silently overwrote
+        // content, which is the exact "third entry disappeared" bug this
+        // restores the fix for.)
+        pdf.addPage(); pageNum++;
+        y = marginTop;
         continue;
       }
 
