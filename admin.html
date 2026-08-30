@@ -69,6 +69,10 @@ tbody tr:hover{background:#f7faff;cursor:pointer}
 .detail-inner{font-size:.82rem;line-height:1.6}
 .detail-inner h4{font-family:var(--disp);color:var(--navy-800);margin:10px 0 4px;font-size:.9rem}
 .detail-inner .tool-line{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px}
+.detail-shots{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.detail-shots figure{margin:0;width:160px}
+.detail-shots img{width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.detail-shots figcaption{font-size:.62rem;color:var(--muted);text-align:center;margin-top:3px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 .loading{text-align:center;padding:40px;color:var(--muted)}
 </style>
 </head>
@@ -296,36 +300,68 @@ function render(){
   }).join('');
 
   $$('#rows tr[data-i]').forEach(tr => {
-    tr.addEventListener('click', () => {
+    tr.addEventListener('click', async () => {
       const i = tr.dataset.i;
       const detailRow = $(`#detail-${i}`);
       const isOpen = detailRow.classList.contains('open');
       $$('.detail').forEach(d => d.classList.remove('open'));
       if(!isOpen){
         detailRow.classList.add('open');
-        $(`#detail-inner-${i}`).innerHTML = buildDetail(list[i]);
+        const target = $(`#detail-inner-${i}`);
+        target.innerHTML = '<p class="nil">Loading…</p>';
+        target.innerHTML = await buildDetail(list[i]);
       }
     });
   });
 }
 
-function buildDetail(r){
+// Fetches just the entry documents this one report needs, on demand —
+// not the whole ictEntries collection, which could hold a lot of image
+// data across every report in the database. Firestore 'in' queries cap
+// at 10 ids, so chunk if a report somehow has more entries than that.
+async function fetchEntryImages(entryIds){
+  const ids = [...new Set(entryIds.filter(Boolean))];
+  const byId = {};
+  if(!ids.length) return byId;
+  for(let i = 0; i < ids.length; i += 10){
+    const chunk = ids.slice(i, i + 10);
+    const snap = await db.collection('ictEntries')
+      .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+    snap.docs.forEach(d => { byId[d.id] = d.data(); });
+  }
+  return byId;
+}
+
+async function buildDetail(r){
   const entries = r.entries || [], refl = r.reflection || {};
+  let imagesById = {};
+  try { imagesById = await fetchEntryImages(entries.map(e => e.entryId)); }
+  catch(e){ console.warn('Could not load entry images:', e.message); }
+
   const toolsHTML = entries.map((e, idx) => {
     const calc = computeEffectiveness(e.entryId);
     const effLine = calc
       ? `Effectiveness: <b>${calc.score10.toFixed(1)}/10</b> — based on ${calc.count} student response${calc.count === 1 ? '' : 's'} ` +
         `(Clarity ${calc.clarity.toFixed(1)}, Engagement ${calc.engagement.toFixed(1)}, Usefulness ${calc.usefulness.toFixed(1)}, each out of 5)`
       : 'Effectiveness: <i>Awaiting student feedback</i>';
+    const imgData = imagesById[e.entryId] || {};
+    const shots = [
+      imgData.screenshotData ? { src: imgData.screenshotData, label: 'Screenshot Proof' } : null,
+      imgData.photoData ? { src: imgData.photoData, label: 'Photo Proof' } : null
+    ].filter(Boolean);
+    const shotsHTML = shots.length
+      ? `<div class="detail-shots">${shots.map(s => `<figure><img src="${s.src}" alt="${esc(s.label)}"><figcaption>${s.label}</figcaption></figure>`).join('')}</div>`
+      : '';
     return `
     <div class="tool-line">
       <b>${idx+1}. ${esc(e.tool)}</b> — ${esc(e.mode)}<br>
       ${effLine}<br>
       ${e.purpose ? esc(e.purpose) + '<br>' : ''}
       ${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.link)}</a><br>` : ''}
-      ${e.screenshotFileName ? `Screenshot: ${esc(e.screenshotFileName)}<br>` : ''}
-      ${e.photoFileName ? `Photo: ${esc(e.photoFileName)}<br>` : ''}
-      ${e.studentDocFileName ? `Document: ${esc(e.studentDocFileName)}` : ''}
+      ${!imgData.screenshotData && e.screenshotFileName ? `Screenshot: ${esc(e.screenshotFileName)} <i>(not stored — saved before image storage, or compression failed)</i><br>` : ''}
+      ${!imgData.photoData && e.photoFileName ? `Photo: ${esc(e.photoFileName)} <i>(not stored — saved before image storage, or compression failed)</i><br>` : ''}
+      ${e.studentDocFileName ? `Document: ${esc(e.studentDocFileName)} <i>(filename only — documents are never stored, only images)</i>` : ''}
+      ${shotsHTML}
     </div>`;
   }).join('') || '<p>No ICT tool entries.</p>';
 
