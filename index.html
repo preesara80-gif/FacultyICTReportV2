@@ -1087,6 +1087,18 @@ async function refreshWithFeedback(){
    URL is what gets saved on the entry and, in turn, in Firestore. This
    is what lets a loaded report show its images again without asking the
    faculty to re-attach anything. */
+// Races any promise against a timeout, rejecting if it doesn't settle in
+// time — used below so a Storage upload that never resolves (e.g. because
+// Storage hasn't been turned on yet in the Firebase console) can't hang
+// the whole save forever. The report itself must always be able to save,
+// with or without images.
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timed out')), ms))
+  ]);
+}
+
 async function uploadEntryFiles(entries, reportId, onProgress){
   if(!storage) return { uploaded: 0, failed: 0 };
   let uploaded = 0, failed = 0;
@@ -1100,8 +1112,11 @@ async function uploadEntryFiles(entries, reportId, onProgress){
         const safeName = rec.name.replace(/[^A-Za-z0-9_.-]+/g, '_');
         const path = `ictUploads/${reportId}/${e.entryId || 'pending'}/${kind}-${Date.now()}-${safeName}`;
         const ref = storage.ref().child(path);
-        await ref.put(blob, blob.type ? { contentType: blob.type } : undefined);
-        rec.src = await ref.getDownloadURL();
+        await withTimeout(
+          ref.put(blob, blob.type ? { contentType: blob.type } : undefined),
+          20000, 'Upload'
+        );
+        rec.src = await withTimeout(ref.getDownloadURL(), 10000, 'Getting download link');
         uploaded++;
       } catch(err){
         console.warn('Upload failed for', rec.name, err);
@@ -1109,6 +1124,8 @@ async function uploadEntryFiles(entries, reportId, onProgress){
         // Leave rec.src as the local data: URL — the filename still saves
         // to Firestore below, so nothing about this entry is lost, it just
         // won't reappear as an image after a reload until re-attached.
+        // Most common cause: Storage hasn't been enabled yet in the
+        // Firebase console — the report itself will still save correctly.
       }
     }
   }
