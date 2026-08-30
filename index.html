@@ -138,6 +138,12 @@ select{cursor:pointer}
 .lvl-high{background:#e3f2e9;color:#1e7d4f}
 .lvl-mid{background:var(--gold-100);color:#a06d0a}
 .lvl-low{background:#fbe9e5;color:#b3402e}
+.load-results{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.load-result-item{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;text-align:left;
+  border:1px solid var(--line);border-radius:9px;padding:10px 14px;background:#fbfcfe;cursor:pointer;transition:.15s}
+.load-result-item:hover{border-color:var(--navy-700);background:#f0f5fc}
+.load-result-item b{color:var(--navy-900);font-size:.9rem}
+.load-result-item span{color:var(--muted);font-size:.76rem}
 
 /* ══════════════ 5 · ICT ENTRY CARDS ══════════════ */
 .entry{
@@ -195,6 +201,7 @@ select{cursor:pointer}
 .cta-hint{font-size:.8rem;color:var(--muted)}
 .save-status{font-size:.8rem;margin-top:8px;font-weight:700}
 .save-status.ok{color:#1e7d4f}
+.save-status.warn{color:#a06d0a}
 .save-status.err{color:#b3402e}
 
 /* ══════════════ 7 · LIVE PULSE SIDEBAR ══════════════ */
@@ -279,6 +286,8 @@ select{cursor:pointer}
 .proof-link:hover{text-decoration:underline}
 .doc-row{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--navy-800);background:#f4f7fb;border:1px solid #e3e9f3;border-radius:8px;padding:8px 12px;margin-top:12px;word-break:break-all}
 .doc-row span{color:var(--muted);font-size:.72rem;flex:none}
+.doc-row-link{text-decoration:none;cursor:pointer}
+.doc-row-link:hover{background:#e7eefb}
 .media-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px;justify-items:center}
 .shot{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:0;max-width:420px}
 .shot img{width:100%;height:190px;object-fit:cover;display:block}
@@ -354,6 +363,22 @@ select{cursor:pointer}
 
     <!-- ═══════════════ FORM COLUMN ═══════════════ -->
     <div class="form-col">
+
+      <!-- 00 · Load a Saved Report -->
+      <section class="card reveal" id="loadCard">
+        <div class="sec-head">
+          <div class="sec-num">↺</div>
+          <div><h2>Load a Saved Report</h2><p>Reopen a report you saved earlier — to check for new student feedback, add another session, or make a correction.</p></div>
+        </div>
+        <div class="grid-2">
+          <div class="field span2">
+            <label class="label" for="loadSearch">Faculty Name</label>
+            <input type="text" id="loadSearch" placeholder="e.g., Dr. G. Preetha — must match exactly what you typed before">
+          </div>
+        </div>
+        <button class="btn btn-ghost" id="btnLoadSearch" type="button" style="margin-top:10px">🔎 Find My Reports</button>
+        <div id="loadResults" class="load-results"></div>
+      </section>
 
       <!-- 01 · Faculty Details -->
       <section class="card reveal">
@@ -467,6 +492,7 @@ select{cursor:pointer}
      button will show an error instead of silently pretending it worked. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCxJyYpAOLqokkFfL9KW6RkQJc2w-eJS18",
@@ -477,6 +503,7 @@ select{cursor:pointer}
     appId: "1:447012178353:web:a39e350036e1e6e9205590"
   };
   let db = null;
+  let storage = null;
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
@@ -485,6 +512,7 @@ select{cursor:pointer}
     // forever with no error. Forcing long-polling makes it behave like a
     // plain HTTP request instead, which gets through those networks.
     db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
+    storage = firebase.storage();
   } catch (e) {
     console.warn("Firebase not configured yet:", e.message);
   }
@@ -578,9 +606,18 @@ function toolOptionsHTML(){
 
 /* ---------- state ---------- */
 let uid = 0;
-const fileStore = new Map();          // key: entryId:kind → {name,dataUrl,size}
+const fileStore = new Map();          // key: entryId:kind → {name,src,size}
 const HINTS = { screenshot:'optional · JPG / PNG', photo:'optional · JPG / PNG', doc:'optional · PDF / DOC / DOCX' };
 let barChart = null, pieChart = null, reportReady = false;
+
+/* ---------- persistent report/session state ----------
+   currentReportRef: Firestore doc ref for the report saved/loaded this
+   session — reused so re-saving updates the same record instead of
+   creating a duplicate. currentReportData: the last data object passed
+   to buildSheetHTML(), kept so "Refresh with Feedback" can re-render
+   without re-collecting the form. */
+let currentReportRef = null;
+let currentReportData = null;
 
 /* ---------- dynamic entry markup ---------- */
 function uploadMarkup(id, kind, ico, label, hint, accept){
@@ -660,7 +697,7 @@ function handleFile(input){
   }
   const reader = new FileReader();
   reader.onload = () => {
-    fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, dataUrl: reader.result, size: file.size });
+    fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, src: reader.result, size: file.size });
     renderPreview(entry, kind);
   };
   reader.readAsDataURL(file);
@@ -673,7 +710,7 @@ function renderPreview(entry, kind){
   if(kind === 'doc'){
     box.innerHTML = `<div class="doc-chip">📄 <span>${esc(rec.name)}</span><button type="button" data-clear data-kind="${kind}" title="Remove">✕</button></div>`;
   } else {
-    box.innerHTML = `<figure class="thumb"><img src="${rec.dataUrl}" alt="${kind} proof"><figcaption>${kind === 'photo' ? 'Photo proof' : 'Screenshot proof'}</figcaption><button type="button" data-clear data-kind="${kind}" title="Remove">✕</button></figure>`;
+    box.innerHTML = `<figure class="thumb"><img src="${rec.src}" alt="${kind} proof"><figcaption>${kind === 'photo' ? 'Photo proof' : 'Screenshot proof'}</figcaption><button type="button" data-clear data-kind="${kind}" title="Remove">✕</button></figure>`;
   }
 }
 function clearFile(entry, kind){
@@ -692,6 +729,38 @@ function effLevel(v){
   return ['Low','lvl-low'];
 }
 function scoreColor(v){ return v >= 8 ? '#1e7d4f' : v >= 5 ? '#d99a17' : '#c0533f'; }
+
+// Same calculation as admin.html's dashboard: averages each criterion
+// across all responses first, then averages those three numbers together.
+// Returns null if there's no feedback yet for this entryId.
+function computeEffectiveness(entryId, responses){
+  if(!entryId || !responses || !responses.length) return null;
+  const avg = key => responses.reduce((s, r) => s + (r[key] || 0), 0) / responses.length;
+  const clarity = avg('clarity'), engagement = avg('engagement'), usefulness = avg('usefulness');
+  const overall5 = (clarity + engagement + usefulness) / 3;
+  return { count: responses.length, clarity, engagement, usefulness, score10: overall5 * 2 };
+}
+
+// Fetches feedbackResponses for a set of entryIds and returns them grouped
+// by entryId, matching the shape admin.html builds from its full collection
+// read. Only queries the ids we actually need.
+async function fetchFeedbackByEntry(entryIds){
+  const ids = [...new Set(entryIds.filter(Boolean))];
+  const byEntry = {};
+  if(!ids.length || !db) return byEntry;
+  // Firestore 'in' queries are capped at 10 values — chunk if there are more.
+  const chunks = [];
+  for(let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+  for(const chunk of chunks){
+    const snap = await db.collection('feedbackResponses').where('entryId', 'in', chunk).get();
+    snap.docs.forEach(d => {
+      const f = d.data();
+      if(!f.entryId) return;
+      (byEntry[f.entryId] ||= []).push(f);
+    });
+  }
+  return byEntry;
+}
 
 /* ---------- live pulse ---------- */
 function updateLiveStats(){
@@ -740,13 +809,13 @@ function collect(){
     } else if(sel.value){ tool = sel.value; category = CAT_OF[sel.value] || 'Other'; }
     const mode = el.querySelector('input[type=radio]:checked')?.value || '—';
     const _empty = !sel.value && !purpose && !link && !screenshot && !photo && !doc;
-    return { tool, category, purpose, eff: null, mode, link, screenshot, photo, doc, _empty };
+    return { tool, category, purpose, eff: null, criteria: null, respCount: 0, mode, link, screenshot, photo, doc, _empty, entryId: el.dataset.entryId || null, el };
   });
   return raw.filter(e => !e._empty).map((e, i) => ({ ...e, idx: i + 1 }));
 }
 
 /* ---------- report rendering ---------- */
-const shotHTML = (f, cap) => `<figure class="shot"><img src="${f.dataUrl}" alt="${esc(cap)}"><figcaption>${cap}</figcaption></figure>`;
+const shotHTML = (f, cap) => `<figure class="shot"><img src="${f.src}" alt="${esc(cap)}"><figcaption>${cap}</figcaption></figure>`;
 const nl2br = s => s ? esc(s).replace(/\n/g,'<br>') : '<span class="nil">Not provided</span>';
 
 function buildSheetHTML(d){
@@ -785,10 +854,21 @@ function buildSheetHTML(d){
       </div>
       ${e.purpose ? `<p class="tc-purpose">${esc(e.purpose).replace(/\n/g,'<br>')}</p>` : ''}
       <div class="tc-meta">
-        <span class="nil">Awaiting student feedback — share the feedback link after saving to see a calculated score here.</span>
+        ${e.eff != null ? `
+          <div class="score-bubble" style="border-color:${col};color:${col}">${e.eff.toFixed(1)}</div>
+          <div class="meter-wrap">
+            <span class="mini-label">${lvl[0]} · Clarity ${e.criteria.clarity.toFixed(1)}/5 · Engagement ${e.criteria.engagement.toFixed(1)}/5 · Usefulness ${e.criteria.usefulness.toFixed(1)}/5 · ${e.respCount} response${e.respCount === 1 ? '' : 's'}</span>
+            <div class="meter"><div class="meter-fill" style="width:${e.eff * 10}%;background:${col}"></div></div>
+          </div>` : `
+          <span class="nil">${e.entryId
+            ? 'Awaiting student feedback — press “Refresh with Feedback” once students have responded.'
+            : 'Awaiting student feedback — share the feedback link after saving to see a calculated score here.'}</span>`}
       </div>
       ${e.link ? `<a class="proof-link" href="${esc(e.link)}" target="_blank" rel="noopener">🔗 ${esc(truncate(e.link, 64))}</a>` : ''}
-      ${e.doc ? `<div class="doc-row">📄 <b>${esc(e.doc.name)}</b><span>${Math.max(1, Math.round(e.doc.size / 1024))} KB · Student Activity Document</span></div>` : ''}
+      ${e.doc ? (e.doc.src && e.doc.src.startsWith('http')
+        ? `<a class="doc-row doc-row-link" href="${esc(e.doc.src)}" target="_blank" rel="noopener">📄 <b>${esc(e.doc.name)}</b><span>${Math.max(1, Math.round((e.doc.size || 0) / 1024))} KB · Student Activity Document</span></a>`
+        : `<div class="doc-row">📄 <b>${esc(e.doc.name)}</b><span>${Math.max(1, Math.round((e.doc.size || 0) / 1024))} KB · Student Activity Document</span></div>`
+      ) : ''}
       ${media ? `<div class="media-grid">${media}</div>` : ''}
     </article>`;
   }).join('');
@@ -820,7 +900,7 @@ function buildSheetHTML(d){
         <div class="rp-h"><span class="bar"></span><h3>Session Snapshot</h3></div>
         <div class="stat-strip">
           ${tile('ICT Interventions', entries.length, '#13315c')}
-          ${tile('Effectiveness', 'Pending feedback', '#e8a020')}
+          ${tile('Effectiveness', avg != null ? avg.toFixed(1) + '/10' : 'Pending feedback', avg != null ? scoreColor(avg) : '#e8a020')}
           ${tile('Synchronous', sync, '#1d4e89')}
           ${tile('Asynchronous', asn, '#f4b942')}
         </div>
@@ -833,9 +913,7 @@ function buildSheetHTML(d){
       <div class="rp-section">
         <div class="rp-h"><span class="bar"></span><h3>Visual Analytics</h3></div>
         <div class="charts-row">
-          <div class="chart-box"><div class="chart-inner">
-            ${scored.length ? '<canvas id="cBar"></canvas>' : '<p class="nil">No effectiveness scores were provided,<br>so the bar chart is unavailable.</p>'}
-          </div></div>
+          <div class="chart-box"><div class="chart-inner"><canvas id="cBar"></canvas></div></div>
           <div class="chart-box"><div class="chart-inner"><canvas id="cPie"></canvas></div></div>
         </div>
       </div>
@@ -850,20 +928,24 @@ function buildSheetHTML(d){
 function initCharts(d){
   if(typeof Chart === 'undefined'){ toast('Chart library could not load — check your internet connection.', 'warn'); return; }
   Chart.defaults.font.family = "'Public Sans', sans-serif";
-  const scored = d.entries.filter(e => e.eff != null);
 
   if(barChart){ barChart.destroy(); barChart = null; }
   if(pieChart){ pieChart.destroy(); pieChart = null; }
 
-  if(scored.length && $('#cBar')){
+  // Bar chart always renders, one bar per tool. Tools with a real score get
+  // their level colour; tools still awaiting feedback get a flat grey
+  // placeholder bar at zero so the chart's shape doesn't jump around as
+  // responses come in, and a tooltip spells out why the bar is empty.
+  const AWAITING_COLOR = '#c9d3e0';
+  if($('#cBar')){
     barChart = new Chart($('#cBar'), {
       type: 'bar',
       data: {
-        labels: scored.map(e => e.tool.length > 22 ? e.tool.slice(0, 21) + '…' : e.tool),
+        labels: d.entries.map(e => e.tool.length > 22 ? e.tool.slice(0, 21) + '…' : e.tool),
         datasets: [{
           label: 'Effectiveness Score (out of 10)',
-          data: scored.map(e => e.eff),
-          backgroundColor: scored.map(e => scoreColor(e.eff)),
+          data: d.entries.map(e => e.eff != null ? e.eff : 0),
+          backgroundColor: d.entries.map(e => e.eff != null ? scoreColor(e.eff) : AWAITING_COLOR),
           borderRadius: 6, maxBarThickness: 48, borderSkipped: false
         }]
       },
@@ -872,7 +954,14 @@ function initCharts(d){
         plugins: {
           legend: { display: true, position: 'bottom', labels: { boxWidth: 14, font: { size: 11 } } },
           title: { display: true, text: 'Effectiveness Scores of ICT Tools Used',
-                   font: { family: "'Bitter', serif", size: 15, weight: 'bold' }, color: '#13315c', padding: { bottom: 12 } }
+                   font: { family: "'Bitter', serif", size: 15, weight: 'bold' }, color: '#13315c', padding: { bottom: 12 } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => d.entries[ctx.dataIndex].eff != null
+                ? `Score: ${ctx.parsed.y.toFixed(1)}/10`
+                : 'Awaiting feedback'
+            }
+          }
         },
         scales: {
           y: { min: 0, max: 10, ticks: { stepSize: 2, font: { size: 11 } }, grid: { color: '#e6ecf5' } },
@@ -909,12 +998,15 @@ function generateReport(){
   const fac  = readFaculty();
   const refl = { strengths: $('#rStrengths').value.trim(), challenges: $('#rChallenges').value.trim(), improvements: $('#rImprovements').value.trim() };
   const data = { fac, entries, refl, generatedOn: new Date() };
+  currentReportData = data;
 
+  const hasAnyEntryId = entries.some(e => e.entryId);
   $('#reportZone').innerHTML = `
     <div class="report-actions">
       <button class="btn btn-ghost" id="btnRegen" type="button">↻ Regenerate</button>
+      ${hasAnyEntryId ? '<button class="btn btn-ghost" id="btnRefreshFeedback" type="button">🔄 Refresh with Feedback</button>' : ''}
       <button class="btn btn-ghost" id="btnPrint" type="button">🖨 Print</button>
-      <button class="btn btn-save"  id="btnSave"  type="button">💾 Save to Database</button>
+      <button class="btn btn-save"  id="btnSave"  type="button">💾 ${currentReportRef ? 'Update Saved Report' : 'Save to Database'}</button>
       <button class="btn btn-gold"  id="btnPDF"   type="button">⬇ Download PDF</button>
     </div>
     <p id="saveStatus" class="save-status"></p>` + buildSheetHTML(data);
@@ -927,9 +1019,100 @@ function generateReport(){
   $('#btnPrint').addEventListener('click', () => window.print());
   $('#btnRegen').addEventListener('click', generateReport);
   $('#btnSave').addEventListener('click', (ev) => { ev.preventDefault(); saveToDatabase(data); });
+  if($('#btnRefreshFeedback')) $('#btnRefreshFeedback').addEventListener('click', refreshWithFeedback);
 
   setTimeout(() => $('#reportZone').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   toast('Report generated ✔');
+}
+
+/* ---------- refresh effectiveness from live student feedback ----------
+   Re-queries feedbackResponses for every entry that has an entryId (i.e.
+   has already been saved and has a feedback link out), recomputes each
+   score, and re-renders the report/charts in place — without touching
+   anything the faculty has typed since. */
+async function refreshWithFeedback(){
+  if(!currentReportData){ toast('Generate the report first.', 'warn'); return; }
+  const btn = $('#btnRefreshFeedback');
+  const old = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.innerHTML = '⏳ Checking for feedback…'; }
+  try {
+    if(!db) throw new Error('Database not connected.');
+    const entryIds = currentReportData.entries.map(e => e.entryId).filter(Boolean);
+    if(!entryIds.length){ toast('Save the report first to get feedback links for each entry.', 'warn'); return; }
+    const byEntry = await fetchFeedbackByEntry(entryIds);
+    let anyScored = false;
+    currentReportData.entries.forEach(e => {
+      const calc = computeEffectiveness(e.entryId, byEntry[e.entryId]);
+      if(calc){
+        e.eff = calc.score10;
+        e.criteria = { clarity: calc.clarity, engagement: calc.engagement, usefulness: calc.usefulness };
+        e.respCount = calc.count;
+        anyScored = true;
+      }
+    });
+    // Rebuild the whole zone, same as generateReport(), but from the
+    // already-collected data rather than re-reading the form.
+    const data = currentReportData;
+    $('#reportZone').innerHTML = `
+      <div class="report-actions">
+        <button class="btn btn-ghost" id="btnRegen" type="button">↻ Regenerate</button>
+        <button class="btn btn-ghost" id="btnRefreshFeedback" type="button">🔄 Refresh with Feedback</button>
+        <button class="btn btn-ghost" id="btnPrint" type="button">🖨 Print</button>
+        <button class="btn btn-save"  id="btnSave"  type="button">💾 ${currentReportRef ? 'Update Saved Report' : 'Save to Database'}</button>
+        <button class="btn btn-gold"  id="btnPDF"   type="button">⬇ Download PDF</button>
+      </div>
+      <p id="saveStatus" class="save-status"></p>` + buildSheetHTML(data);
+    injectCrests();
+    initCharts(data);
+    reportReady = true;
+    $('#btnPDF').addEventListener('click', downloadPDF);
+    $('#btnPrint').addEventListener('click', () => window.print());
+    $('#btnRegen').addEventListener('click', generateReport);
+    $('#btnSave').addEventListener('click', (ev) => { ev.preventDefault(); saveToDatabase(data); });
+    $('#btnRefreshFeedback').addEventListener('click', refreshWithFeedback);
+    toast(anyScored ? 'Effectiveness updated from student feedback ✔' : 'No student responses yet — check back later.');
+  } catch(e){
+    toast('Could not refresh feedback: ' + e.message, 'warn');
+  } finally {
+    if(btn){ btn.disabled = false; if(old) btn.innerHTML = old; }
+  }
+}
+
+/* ---------- upload proof files to Firebase Storage ----------
+   Firestore documents are capped at 1MB, far too small for photos, so
+   entries only ever stored a filename there. Actual image bytes go to
+   Storage instead — each entry's screenshot/photo/document is uploaded
+   once (skipped if it already has an http(s) URL, meaning it was loaded
+   from a previous save and never replaced), and the resulting download
+   URL is what gets saved on the entry and, in turn, in Firestore. This
+   is what lets a loaded report show its images again without asking the
+   faculty to re-attach anything. */
+async function uploadEntryFiles(entries, reportId, onProgress){
+  if(!storage) return { uploaded: 0, failed: 0 };
+  let uploaded = 0, failed = 0;
+  for(const e of entries){
+    for(const kind of ['screenshot','photo','doc']){
+      const rec = e[kind];
+      if(!rec || !rec.src || !rec.src.startsWith('data:')) continue; // nothing to upload, or already in Storage
+      try {
+        if(onProgress) onProgress(rec.name);
+        const blob = await (await fetch(rec.src)).blob();
+        const safeName = rec.name.replace(/[^A-Za-z0-9_.-]+/g, '_');
+        const path = `ictUploads/${reportId}/${e.entryId || 'pending'}/${kind}-${Date.now()}-${safeName}`;
+        const ref = storage.ref().child(path);
+        await ref.put(blob, blob.type ? { contentType: blob.type } : undefined);
+        rec.src = await ref.getDownloadURL();
+        uploaded++;
+      } catch(err){
+        console.warn('Upload failed for', rec.name, err);
+        failed++;
+        // Leave rec.src as the local data: URL — the filename still saves
+        // to Firestore below, so nothing about this entry is lost, it just
+        // won't reappear as an image after a reload until re-attached.
+      }
+    }
+  }
+  return { uploaded, failed };
 }
 
 /* ---------- save to database ---------- */
@@ -948,35 +1131,57 @@ async function saveToDatabase(data){
       throw new Error('Firebase library did not fully load — check your internet connection and reload the page.');
     }
 
-    // Pre-generate IDs for the report doc and every entry doc so we can
-    // cross-reference them both ways without a second round trip.
-    const reportRef = db.collection('facultyICTReports').doc();
-    const entryRefs = data.entries.map(() => db.collection('ictEntries').doc());
+    // If a report is already tracked for this session (freshly saved, or
+    // loaded via "Load a Saved Report"), update that same document instead
+    // of creating a new one — otherwise every re-save after collecting
+    // feedback would duplicate the record in the admin dashboard and CSV.
+    const isUpdate = !!currentReportRef;
+    const reportRef = currentReportRef || db.collection('facultyICTReports').doc();
 
-    // Note: image files are NOT stored in the database. Firestore documents
-    // are capped at 1MB and photo uploads blow past that fast. Only proof
-    // links and file names are saved — use Firebase Storage if you need the
-    // actual image bytes stored too.
+    // Reuse each entry's existing entryId (so already-shared feedback links
+    // keep working and their responses stay linked) — only entries that
+    // have never been saved before get a fresh id.
+    const entryRefs = data.entries.map(e =>
+      e.entryId ? db.collection('ictEntries').doc(e.entryId) : db.collection('ictEntries').doc()
+    );
+
+    // Upload any newly-picked screenshot/photo/document files to Storage
+    // before writing the report — mutates data.entries[i].<kind>.src in
+    // place with the resulting download URL (existing http(s) URLs, from
+    // a loaded report the file wasn't replaced in, are left untouched).
+    let uploadResult = { uploaded: 0, failed: 0 };
+    if(statusEl){ statusEl.textContent = 'Uploading proof files…'; }
+    uploadResult = await uploadEntryFiles(data.entries, reportRef.id);
+
     const record = {
       faculty: data.fac,
       entries: data.entries.map((e, i) => ({
         entryId: entryRefs[i].id, tool: e.tool, category: e.category, purpose: e.purpose,
         mode: e.mode, link: e.link,
         screenshotFileName: e.screenshot ? e.screenshot.name : null,
+        screenshotUrl: e.screenshot && e.screenshot.src && e.screenshot.src.startsWith('http') ? e.screenshot.src : null,
+        screenshotSize: e.screenshot ? e.screenshot.size : null,
         photoFileName: e.photo ? e.photo.name : null,
-        studentDocFileName: e.doc ? e.doc.name : null
+        photoUrl: e.photo && e.photo.src && e.photo.src.startsWith('http') ? e.photo.src : null,
+        photoSize: e.photo ? e.photo.size : null,
+        studentDocFileName: e.doc ? e.doc.name : null,
+        studentDocUrl: e.doc && e.doc.src && e.doc.src.startsWith('http') ? e.doc.src : null,
+        studentDocSize: e.doc ? e.doc.size : null
       })),
       reflection: data.refl,
-      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    // Only stamp submittedAt on the very first save — merge:true below
+    // leaves the existing value untouched on later updates, which keeps
+    // the admin dashboard's date column and sort order meaningful.
+    if(!isUpdate) record.submittedAt = firebase.firestore.FieldValue.serverTimestamp();
 
     const batch = db.batch();
-    batch.set(reportRef, record);
+    batch.set(reportRef, record, { merge: true });
     data.entries.forEach((e, i) => {
-      batch.set(entryRefs[i], {
-        reportId: reportRef.id, tool: e.tool, faculty: data.fac.name || null,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      const entryPayload = { reportId: reportRef.id, tool: e.tool, faculty: data.fac.name || null };
+      if(!e.entryId) entryPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      batch.set(entryRefs[i], entryPayload, { merge: true });
     });
 
     const timeout = new Promise((_, reject) =>
@@ -984,10 +1189,21 @@ async function saveToDatabase(data){
     );
     await Promise.race([ batch.commit(), timeout ]);
 
-    statusEl.textContent = 'Saved to database.';
-    statusEl.classList.add('ok');
-    toast('Saved to database ✔');
-    renderFeedbackLinks(data.entries.map((e, i) => ({ tool: e.tool, entryId: entryRefs[i].id })));
+    // Remember this report for future saves/refreshes, and stamp the new
+    // entryIds back onto the entry data and their DOM elements so a later
+    // "Refresh with Feedback" or re-save knows which Firestore docs to use.
+    currentReportRef = reportRef;
+    data.entries.forEach((e, i) => {
+      e.entryId = entryRefs[i].id;
+      if(e.el) e.el.dataset.entryId = entryRefs[i].id;
+    });
+
+    statusEl.textContent = (isUpdate ? 'Updated the saved report.' : 'Saved to database.') +
+      (uploadResult.failed ? ` (${uploadResult.failed} file${uploadResult.failed === 1 ? '' : 's'} couldn't upload — filenames were still saved.)` : '');
+    statusEl.classList.add(uploadResult.failed ? 'warn' : 'ok');
+    toast(isUpdate ? 'Report updated ✔' : 'Saved to database ✔');
+    renderFeedbackLinks(data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })));
+    if(btn) btn.textContent = '💾 Update Saved Report';
   } catch (e) {
     statusEl.textContent = 'Save failed: ' + e.message;
     statusEl.classList.add('err');
@@ -1049,13 +1265,48 @@ async function downloadPDF(){
     // gets sliced — everything else moves to a fresh page as a whole unit.
     const blocks = [$('.sheet-head', sheet), ...$$('.sheet-body > .rp-section', sheet)];
     let y = marginTop;
+    // jsPDF's addPage() always makes the new page "current" — we track that
+    // page number ourselves in lockstep with every addPage() call below, so
+    // pdf.link() can target the exact page a proof link ends up on, even
+    // when a tall section gets sliced across several pages.
+    let pageNum = 1;
+
+    // A screenshot is just pixels — html2canvas has no idea a <a> tag was
+    // ever a link, so proof links go dead once rasterised into the image.
+    // To keep them clickable, we read each link's on-screen position
+    // *before* the block is turned into an image, then lay an invisible
+    // jsPDF link annotation on top of the same spot afterwards. Since
+    // html2canvas renders at the element's actual CSS-pixel width (only
+    // upscaled internally for resolution via `scale`), millimetres-per-
+    // CSS-pixel is simply usableW / rect.width, independent of that scale.
+    // yBase is where the block's own top (y=0) lands on the target page, in
+    // mm. clipMin/clipMax restrict placement to what's actually visible on
+    // that page — used only when a block has been sliced across pages;
+    // pass null/null when the whole block is known to fit on one page.
+    function placeLinks(links, rect, pxToMm, pageNumber, yBase, clipMin, clipMax){
+      links.forEach(({ a, r }) => {
+        const blockYMm = (r.top - rect.top) * pxToMm;
+        const yMm = yBase + blockYMm;
+        if(clipMin != null && (yMm < clipMin - 1 || yMm > clipMax + 1)) return; // not on this slice
+        const xMm = marginX + (r.left - rect.left) * pxToMm;
+        const wMm = r.width * pxToMm;
+        const hMm = r.height * pxToMm;
+        pdf.setPage(pageNumber);
+        pdf.link(xMm, Math.max(yMm, 0), wMm, hMm, { url: a.href });
+      });
+    }
 
     for(const el of blocks){
       // Sections marked data-force-break always start on a fresh page,
       // even if the current page still has room left.
       if(el.dataset && el.dataset.forceBreak === 'true' && y > marginTop){
-        pdf.addPage(); y = marginTop;
+        pdf.addPage(); pageNum++; y = marginTop;
       }
+
+      const rect = el.getBoundingClientRect();
+      const links = [...el.querySelectorAll('.proof-link, .doc-row-link')].map(a => ({ a, r: a.getBoundingClientRect() }));
+      const pxToMm = usableW / rect.width;
+
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
       const h = canvas.height * usableW / canvas.width;
       const img = canvas.toDataURL('image/png');
@@ -1064,28 +1315,35 @@ async function downloadPDF(){
         // Block itself is taller than one full page (e.g. many ICT tool
         // entries with photos). No way to keep it whole — slice it across
         // as many pages as it needs, each slice using the full page.
-        if(y > marginTop){ pdf.addPage(); }
+        if(y > marginTop){ pdf.addPage(); pageNum++; }
         let drawnSoFar = 0;
         pdf.addImage(img, 'PNG', marginX, 0, usableW, h);
+        placeLinks(links, rect, pxToMm, pageNum, 0, 0, pageH);
         drawnSoFar = pageH;
         while(drawnSoFar < h){
-          pdf.addPage();
+          pdf.addPage(); pageNum++;
           pdf.addImage(img, 'PNG', marginX, -drawnSoFar, usableW, h);
+          placeLinks(links, rect, pxToMm, pageNum, -drawnSoFar, 0, pageH);
           drawnSoFar += pageH;
         }
-        pdf.addPage();
+        pdf.addPage(); pageNum++;
         y = marginTop; // fresh page for whatever block comes next
         continue;
       }
 
-      if(y + h > pageH - marginTop){ pdf.addPage(); y = marginTop; }
+      if(y + h > pageH - marginTop){ pdf.addPage(); pageNum++; y = marginTop; }
       pdf.addImage(img, 'PNG', marginX, y, usableW, h);
+      placeLinks(links, rect, pxToMm, pageNum, y, null, null);
       y += h + gap;
     }
 
+    // Placing links may have switched jsPDF's "current" page — make sure
+    // we end on the actual last page before saving.
+    pdf.setPage(pageNum);
+
     const name = ($('#fName').value.trim() || 'Faculty').replace(/[^A-Za-z0-9_-]+/g, '_');
     pdf.save(`GNC_ICT_Report_${name}_${new Date().toISOString().slice(0,10)}.pdf`);
-    toast('PDF downloaded ✔');
+    toast('PDF downloaded ✔ — proof links are clickable inside it.');
   } catch(err){
     console.error(err);
     toast('Something went wrong while creating the PDF. Try the Print option.', 'warn');
@@ -1150,6 +1408,133 @@ function populateSchoolDept(){
 }
 function populateBatch(){
   $('#fBatch').innerHTML = '<option value="">Select…</option>' + batchOptionsHTML();
+}
+
+/* ---------- load a previously saved report ---------- */
+$('#btnLoadSearch').addEventListener('click', async () => {
+  const name = $('#loadSearch').value.trim();
+  const box = $('#loadResults');
+  if(!name){ toast('Type the faculty name to search for.', 'warn'); return; }
+  box.innerHTML = '<p class="nil">Searching…</p>';
+  try {
+    if(!db) throw new Error('Database not connected.');
+    const snap = await db.collection('facultyICTReports')
+      .where('faculty.name', '==', name)
+      .orderBy('submittedAt', 'desc')
+      .limit(15).get();
+    if(snap.empty){
+      box.innerHTML = '<p class="nil">No saved reports found for that name. Check it matches exactly what you typed before (capitalisation and spacing included).</p>';
+      return;
+    }
+    box.innerHTML = snap.docs.map(docSnap => {
+      const r = docSnap.data(), f = r.faculty || {};
+      const dateStr = r.submittedAt && r.submittedAt.toDate
+        ? r.submittedAt.toDate().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})
+        : '—';
+      const toolCount = (r.entries || []).length;
+      return `<button type="button" class="load-result-item" data-id="${esc(docSnap.id)}">
+        <b>${esc(f.course || 'Untitled course')}</b>
+        <span>${esc(f.batch || '')} · ${esc(f.sem || '')} · ${toolCount} tool${toolCount === 1 ? '' : 's'} · saved ${dateStr}</span>
+      </button>`;
+    }).join('');
+    box.querySelectorAll('.load-result-item').forEach(el => {
+      el.addEventListener('click', () => loadSavedReport(el.dataset.id));
+    });
+  } catch(e){
+    box.innerHTML = `<p class="nil">Search failed: ${esc(e.message)}</p>`;
+  }
+});
+
+async function loadSavedReport(id){
+  try {
+    if(!db) throw new Error('Database not connected.');
+    const snap = await db.collection('facultyICTReports').doc(id).get();
+    if(!snap.exists){ toast('That report could not be found — it may have been deleted.', 'warn'); return; }
+    const r = snap.data();
+    currentReportRef = db.collection('facultyICTReports').doc(id);
+    currentReportData = null;
+
+    const f = r.faculty || {};
+    $('#fName').value = f.name || '';
+    $('#fShift').value = f.shift || '';
+    $('#fCourse').value = f.course || '';
+    $('#fCode').value = f.code || '';
+    $('#fSem').value = f.sem || '';
+    $('#fYear').value = f.year || '';
+    $('#fAY').value = f.ay || '2026 – 27';
+
+    // School → Department is a cascading pair; set school first so its
+    // change handler populates the department list, then set department.
+    $('#fSchool').value = f.school || '';
+    $('#fSchool').dispatchEvent(new Event('change'));
+    $('#fDept').value = f.dept || '';
+    $('#fBatch').value = f.batch || '';
+
+    $('#rStrengths').value = (r.reflection || {}).strengths || '';
+    $('#rChallenges').value = (r.reflection || {}).challenges || '';
+    $('#rImprovements').value = (r.reflection || {}).improvements || '';
+
+    // Rebuild the ICT tool entries from the saved record.
+    $('#entries').innerHTML = '';
+    fileStore.clear();
+    uid = 0;
+    (r.entries || []).forEach(e => {
+      addEntry();
+      const el = $('#entries .entry:last-child');
+      el.dataset.entryId = e.entryId || '';
+
+      const sel = $('.tool-select', el);
+      const isKnownTool = TOOL_GROUPS.some(([, ts]) => ts.includes(e.tool));
+      if(isKnownTool){
+        sel.value = e.tool;
+      } else if(e.tool){
+        sel.value = OTHER_VALUE;
+        $('.tool-other', el).value = e.tool.replace(/^Other — /, '');
+      }
+      sel.dispatchEvent(new Event('change'));
+
+      $('#purp-' + el.dataset.id).value = e.purpose || '';
+      $('#link-' + el.dataset.id).value = e.link || '';
+      const modeInput = el.querySelector(`input[type=radio][value="${e.mode}"]`);
+      if(modeInput) modeInput.checked = true;
+
+      // Screenshots/photos/documents that were uploaded to Storage come
+      // back with a URL — restore them into the same fileStore the file
+      // picker uses, so they reappear as real previews and flow straight
+      // into the next report/PDF with no re-upload needed.
+      const restore = (kind, url, name, size) => {
+        if(!url) return;
+        fileStore.set(el.dataset.id + ':' + kind, { name: name || kind, src: url, size: size || 0 });
+        renderPreview(el, kind);
+        const upEl = el.querySelector(`.upload[data-kind="${kind}"] .up-state`);
+        if(upEl) upEl.textContent = '✓ ' + truncate(name || kind, 26);
+      };
+      restore('screenshot', e.screenshotUrl, e.screenshotFileName, e.screenshotSize);
+      restore('photo', e.photoUrl, e.photoFileName, e.photoSize);
+      restore('doc', e.studentDocUrl, e.studentDocFileName, e.studentDocSize);
+
+      // Only records saved before Storage support existed have a filename
+      // but no URL — those genuinely need re-attaching to appear again.
+      const legacyNotes = [];
+      if(e.screenshotFileName && !e.screenshotUrl) legacyNotes.push('Screenshot: ' + e.screenshotFileName);
+      if(e.photoFileName && !e.photoUrl) legacyNotes.push('Photo: ' + e.photoFileName);
+      if(e.studentDocFileName && !e.studentDocUrl) legacyNotes.push('Document: ' + e.studentDocFileName);
+      if(legacyNotes.length){
+        const note = document.createElement('p');
+        note.className = 'eff-note';
+        note.textContent = 'Saved before file storage was added — re-attach to include in a new PDF: ' + legacyNotes.join(' · ');
+        $('.uploads', el).insertAdjacentElement('beforebegin', note);
+      }
+    });
+    renumber();
+    updateLiveStats();
+    $('#loadResults').innerHTML = '';
+    $('#loadSearch').value = '';
+    toast('Report loaded ✔ — press “Generate Report”, then “Refresh with Feedback” to pull in the latest scores.');
+    $('#loadCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e){
+    toast('Could not load that report: ' + e.message, 'warn');
+  }
 }
 
 /* boot */
