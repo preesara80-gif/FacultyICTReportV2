@@ -115,7 +115,9 @@ async function fetchEntryName(){
   try {
     const doc = await db.collection('ictEntries').doc(entryId).get();
     if(doc.exists){
-      return doc.data().toolName || 'ICT Tool';
+      // FIXED: Use 'tool' field (not 'toolName') - matches index.html storage
+      const toolName = doc.data().tool || doc.data().toolName || 'ICT Tool';
+      return toolName;
     }
   } catch(e){
     console.warn('Error fetching tool name:', e);
