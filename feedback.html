@@ -49,47 +49,11 @@ body{
 .submit-btn:disabled{opacity:.55; cursor:wait}
 .status{margin-top:14px; font-size:.85rem; font-weight:600; text-align:center}
 .status.err{color:#b3402e}
-.status.success{color:#1e7d4f}
 .thanks{text-align:center; padding:20px 0}
 .thanks .tick{width:56px;height:56px;border-radius:50%;background:#e3f2e9;color:#1e7d4f;display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 14px}
 .thanks h2{font-family:var(--disp); color:var(--navy-900); margin-bottom:6px}
 .thanks p{color:var(--muted); font-size:.88rem}
 .missing{text-align:center; padding:30px 10px; color:var(--muted)}
-
-/* NEW: Link sharing section styles */
-.link-section{
-  background:#f9fafb; border:1px solid var(--line); border-radius:10px; padding:16px;
-  margin-bottom:20px;
-}
-.link-section-title{
-  font-size:.85rem; font-weight:700; color:var(--navy-800); margin-bottom:8px;
-  display:flex; align-items:center; gap:6px;
-}
-.link-section-title span{font-size:1.1rem}
-.link-input{
-  width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px;
-  font-size:.85rem; font-family:monospace; background:#fff; color:var(--ink);
-  margin-bottom:8px; word-break:break-all;
-}
-.btn-group{display:flex; gap:8px}
-.btn-copy{
-  flex:1; padding:8px 12px; background:var(--navy-700); color:#fff; border:none;
-  border-radius:6px; font-size:.8rem; font-weight:600; cursor:pointer; transition:.15s;
-}
-.btn-copy:hover{background:var(--navy-800)}
-.btn-copy.copied{background:#1e7d4f}
-.btn-copy.copied::after{content:' ✓'}
-.qr-container{
-  text-align:center; margin-top:12px;
-  padding-top:12px; border-top:1px solid var(--line);
-}
-.qr-container p{font-size:.75rem; color:var(--muted); margin-bottom:8px}
-.qr-placeholder{
-  width:120px; height:120px; background:#f0f5fc; border:1px solid var(--line);
-  border-radius:8px; margin:0 auto; display:flex; align-items:center; justify-content:center;
-  font-size:3rem; color:var(--line);
-}
-.hidden{display:none}
 </style>
 </head>
 <body>
@@ -106,7 +70,6 @@ body{
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
   // Same project as index.html and admin.html — keep all three in sync if you rotate keys.
   const firebaseConfig = {
@@ -147,6 +110,7 @@ if (!entryId) {
   renderForm();
 }
 
+// Fetch the ICT tool name from Firestore for student clarity
 async function fetchEntryName(){
   try {
     const doc = await db.collection('ictEntries').doc(entryId).get();
@@ -161,7 +125,6 @@ async function fetchEntryName(){
 
 async function renderForm(){
   const toolName = await fetchEntryName();
-  const feedbackUrl = location.href;
   
   const scaleHTML = (key) => `
     <div class="scale" data-key="${key}">
@@ -169,23 +132,8 @@ async function renderForm(){
     </div>
     <div class="scale-labels"><span>Not at all</span><span>Very much</span></div>`;
 
+  // Clean form - ONLY tool name + ratings (for students)
   body.innerHTML = `
-    <!-- Link Sharing Section (for faculty) -->
-    <div class="link-section">
-      <div class="link-section-title">
-        <span>📋</span> Feedback Link (Share with Students)
-      </div>
-      <div class="link-input" id="linkDisplay">${feedbackUrl}</div>
-      <div class="btn-group">
-        <button type="button" class="btn-copy" id="btnCopy">📋 Copy Link</button>
-      </div>
-      <div class="qr-container">
-        <p>Or scan QR code:</p>
-        <div id="qrcode"></div>
-      </div>
-    </div>
-
-    <!-- Feedback Form Section -->
     <div class="tool-name">Rating "${toolName}" (ICT Tool)</div>
     ${CRITERIA.map(c => `
       <div class="q">
@@ -195,36 +143,6 @@ async function renderForm(){
     <button type="button" class="submit-btn" id="btnSubmit">Submit Feedback</button>
     <p class="status" id="status"></p>
   `;
-
-  // Generate QR Code
-  setTimeout(() => {
-    const qrContainer = document.getElementById('qrcode');
-    if(qrContainer){
-      new QRCode(qrContainer, {
-        text: feedbackUrl,
-        width: 120,
-        height: 120,
-        colorDark: '#0b2545',
-        colorLight: '#ffffff'
-      });
-    }
-  }, 100);
-
-  // Copy link button functionality
-  const btnCopy = $('#btnCopy');
-  btnCopy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(feedbackUrl);
-      btnCopy.classList.add('copied');
-      btnCopy.textContent = '✓ Copied!';
-      setTimeout(() => {
-        btnCopy.classList.remove('copied');
-        btnCopy.textContent = '📋 Copy Link';
-      }, 2000);
-    } catch(e){
-      alert('Failed to copy: ' + e.message);
-    }
-  });
 
   const selections = {};
   document.querySelectorAll('.scale').forEach(scaleEl => {
