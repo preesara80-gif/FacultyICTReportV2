@@ -54,6 +54,10 @@ body{
 .thanks h2{font-family:var(--disp); color:var(--navy-900); margin-bottom:6px}
 .thanks p{color:var(--muted); font-size:.88rem}
 .missing{text-align:center; padding:30px 10px; color:var(--muted)}
+.expired-banner{background:#f8d7da; border:2px solid #dc3545; border-radius:10px; padding:20px; text-align:center; color:#721c24}
+.expired-banner h2{font-family:var(--disp); font-size:1.1rem; margin-bottom:8px; color:#721c24}
+.expired-banner p{font-size:.9rem; margin-bottom:10px}
+.expired-banner .expired-date{font-weight:700; font-size:.95rem; color:#dc3545}
 </style>
 </head>
 <body>
@@ -110,23 +114,40 @@ if (!entryId) {
   renderForm();
 }
 
-// Fetch the ICT tool name from Firestore for student clarity
-async function fetchEntryName(){
+// Fetch the ICT tool name and expiration status from Firestore
+async function fetchEntryData(){
   try {
     const doc = await db.collection('ictEntries').doc(entryId).get();
     if(doc.exists){
-      // FIXED: Use 'tool' field (not 'toolName') - matches index.html storage
-      const toolName = doc.data().tool || doc.data().toolName || 'ICT Tool';
-      return toolName;
+      const data = doc.data();
+      const toolName = data.tool || data.toolName || 'ICT Tool';
+      const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
+      return { toolName, expiresAt };
     }
   } catch(e){
-    console.warn('Error fetching tool name:', e);
+    console.warn('Error fetching entry data:', e);
   }
-  return 'ICT Tool';
+  return { toolName: 'ICT Tool', expiresAt: null };
 }
 
 async function renderForm(){
-  const toolName = await fetchEntryName();
+  const { toolName, expiresAt } = await fetchEntryData();
+  
+  // Check if feedback link has expired
+  const now = new Date();
+  const isExpired = expiresAt && expiresAt < now;
+  
+  if(isExpired){
+    const expiredDateStr = expiresAt.toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
+    body.innerHTML = `
+      <div class="expired-banner">
+        <h2>❌ This Feedback Link Has Expired</h2>
+        <p>This link was only active for 15 days from when the report was saved.</p>
+        <p class="expired-date">Expired on: ${expiredDateStr}</p>
+        <p style="margin-top:12px; font-size:.85rem">If you still want to provide feedback, please contact your faculty member for an updated link.</p>
+      </div>`;
+    return;
+  }
   
   const scaleHTML = (key) => `
     <div class="scale" data-key="${key}">
