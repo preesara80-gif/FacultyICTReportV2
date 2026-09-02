@@ -145,6 +145,15 @@ select{cursor:pointer}
 .load-result-item b{color:var(--navy-900);font-size:.9rem}
 .load-result-item span{color:var(--muted);font-size:.76rem}
 
+/* ══════════════ QR CODE DOWNLOAD & EXPIRATION ══════════════ */
+.qr-card-actions{display:flex;gap:8px;margin-top:10px;justify-content:center}
+.btn-download-qr{font-size:.75rem;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid var(--navy-700);background:#fff;color:var(--navy-700);cursor:pointer;transition:.18s;flex:1}
+.btn-download-qr:hover{background:var(--navy-700);color:#fff}
+.qr-countdown{font-size:.78rem;color:var(--muted);text-align:center;margin-top:10px;padding:8px;border-radius:6px;background:#f0f5fc;border:1px solid #d7e3f5}
+.qr-countdown.expiring-soon{background:#fff3cd;border-color:#ffc107;color:#856404}
+.qr-countdown.expired{background:#f8d7da;border-color:#dc3545;color:#721c24;font-weight:600}
+.qr-expired-banner{background:#f8d7da;border:1px solid #dc3545;color:#721c24;padding:12px;border-radius:8px;margin-bottom:12px;text-align:center;font-weight:600}
+
 /* ══════════════ 5 · ICT ENTRY CARDS ══════════════ */
 .entry{
   background:#fbfcfe;border:1px solid var(--line);border-left:4px solid var(--gold-500);
@@ -1263,7 +1272,20 @@ async function saveToDatabase(data){
       (compressResult.failed ? ` (${compressResult.failed} image${compressResult.failed === 1 ? '' : 's'} couldn't be compressed — filenames were still saved.)` : '');
     statusEl.classList.add(compressResult.failed ? 'warn' : 'ok');
     toast(isUpdate ? 'Report updated ✔' : 'Saved to database ✔');
-    renderFeedbackLinks(data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })));
+    
+    // Calculate expiration (15 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 15);
+
+    // Store expiration in database for each entry
+    data.entries.forEach((e, i) => {
+      entryRefs[i].update({ expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt) });
+    });
+
+    renderFeedbackLinks(
+      data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })),
+      expiresAt
+    );
     if(btn) btn.textContent = '💾 Update Saved Report';
   } catch (e) {
     statusEl.textContent = 'Save failed: ' + e.message;
@@ -1275,29 +1297,49 @@ async function saveToDatabase(data){
 }
 
 /* ---------- feedback links, shown after a successful save ---------- */
-function renderFeedbackLinks(items){
+function renderFeedbackLinks(items, expiresAt){
   const box = document.createElement('div');
   box.className = 'feedback-links-box';
+  
+  // Determine expiration status
+  const now = new Date();
+  const isExpired = expiresAt && expiresAt < now;
+  const daysLeft = expiresAt ? Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)) : 0;
+  const isExpiringSoon = daysLeft > 0 && daysLeft <= 2;
+  
   box.innerHTML = `
     <h3>Student Feedback Links</h3>
     <p>Share each link (or its QR code) with students right after using that tool. Effectiveness is calculated from their responses — check the admin dashboard to see it update.</p>
+    ${isExpired ? '<div class="qr-expired-banner">⚠️ These feedback links have EXPIRED (15 days have passed since the report was saved). Students can no longer provide feedback.</div>' : ''}
     <div class="feedback-links-grid">
       ${items.map((it, i) => {
         const url = new URL('feedback.html', location.href).href + '?entry=' + encodeURIComponent(it.entryId);
         const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url);
+        
         return `
         <div class="feedback-link-card">
           <b>${i+1}. ${esc(it.tool)}</b>
-          <img src="${qr}" alt="QR code for ${esc(it.tool)} feedback" width="120" height="120">
+          <img src="${qr}" alt="QR code for ${esc(it.tool)} feedback" width="120" height="120" style="border:1px solid var(--line);border-radius:6px;padding:2px">
           <div class="fl-url-row">
             <input type="text" readonly value="${esc(url)}" class="fl-url" onclick="this.select()">
             <button type="button" class="fl-copy" data-url="${esc(url)}">Copy</button>
           </div>
+          <div class="qr-card-actions">
+            <button type="button" class="btn-download-qr" data-qr="${esc(qr)}" data-tool="${esc(it.tool)}" data-entry-id="${esc(it.entryId)}">⬇ Download QR</button>
+          </div>
+          <div class="qr-countdown ${isExpired ? 'expired' : isExpiringSoon ? 'expiring-soon' : ''}">
+            ${isExpired 
+              ? `❌ Expired on ${expiresAt.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}` 
+              : `⏰ Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expiresAt.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})})`}
+          </div>
         </div>`;
       }).join('')}
     </div>`;
+  
   const statusEl = $('#saveStatus');
   statusEl.insertAdjacentElement('afterend', box);
+  
+  // Copy button handlers (existing)
   box.querySelectorAll('.fl-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(btn.dataset.url).then(() => {
@@ -1306,6 +1348,46 @@ function renderFeedbackLinks(items){
       });
     });
   });
+  
+  // Download QR button handlers (NEW)
+  box.querySelectorAll('.btn-download-qr').forEach(btn => {
+    btn.addEventListener('click', () => downloadQRCode(btn.dataset.qr, btn.dataset.tool, btn.dataset.entryId));
+  });
+}
+
+/* ---------- download QR code as PNG ---------- */
+async function downloadQRCode(qrUrl, toolName, entryId){
+  try {
+    const btn = event.target.closest('.btn-download-qr');
+    const old = btn.textContent;
+    btn.textContent = '⏳ Downloading…';
+    btn.disabled = true;
+    
+    // Fetch the QR image
+    const response = await fetch(qrUrl);
+    if(!response.ok) throw new Error('Failed to fetch QR code');
+    
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Generate filename with date and tool name (safe for filesystems)
+    const safeTool = toolName.replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 30);
+    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    link.href = url;
+    link.download = `GNC-ICT-${safeTool}-${date}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    btn.textContent = '✓ Downloaded!';
+    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2000);
+  } catch(e){
+    toast('Could not download QR code: ' + e.message, 'warn');
+    btn.textContent = old;
+    btn.disabled = false;
+  }
 }
 
 /* ---------- PDF export ---------- */
