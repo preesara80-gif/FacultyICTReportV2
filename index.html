@@ -88,7 +88,9 @@ body.scrolled .masthead{box-shadow:0 8px 28px rgba(11,37,69,.4)}
   font-family:var(--disp);font-weight:800;font-size:1rem;box-shadow:inset 0 0 0 1px rgba(232,160,32,.4)}
 .sec-head h2{font-family:var(--disp);font-size:1.28rem;color:var(--navy-900)}
 .sec-head p{color:var(--muted);font-size:.85rem;margin-top:2px}
-.sec-head .btn{margin-left:auto;flex:none;align-self:center}
+.sec-head .btn{flex:none;align-self:center}
+.sec-actions{margin-left:auto;flex:none;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
+.sec-actions .save-status{margin-top:0;white-space:nowrap}
 
 /* ══════════════ 4 · FORM CONTROLS ══════════════ */
 .field{display:flex;flex-direction:column;gap:6px}
@@ -393,6 +395,10 @@ select{cursor:pointer}
         <div class="sec-head">
           <div class="sec-num">01</div>
           <div><h2>Faculty Details</h2><p>Basic information about the faculty member and the session.</p></div>
+          <div class="sec-actions">
+            <span class="save-status" id="qsStatus1"></span>
+            <button class="btn btn-ghost" id="btnQuickSave1" type="button">💾 Save Progress</button>
+          </div>
         </div>
         <div class="fac-form">
           <div class="field span2"><label class="label" for="fName">Faculty Name</label>
@@ -423,7 +429,11 @@ select{cursor:pointer}
         <div class="sec-head">
           <div class="sec-num">02</div>
           <div><h2>ICT Tools / Methods Used</h2><p>Add one entry for every tool or method deployed in the session.</p></div>
-          <button class="btn btn-gold" id="btnAddTop" type="button">＋ Add ICT Tool Entry</button>
+          <div class="sec-actions">
+            <span class="save-status" id="qsStatus2"></span>
+            <button class="btn btn-ghost" id="btnQuickSave2" type="button">💾 Save Progress</button>
+            <button class="btn btn-gold" id="btnAddTop" type="button">＋ Add ICT Tool Entry</button>
+          </div>
         </div>
         <div id="entries"><!-- dynamic entries render here --></div>
         <button class="add-dashed" id="btnAddBottom" type="button">＋ Add Another ICT Tool Entry</button>
@@ -434,6 +444,10 @@ select{cursor:pointer}
         <div class="sec-head">
           <div class="sec-num">03</div>
           <div><h2>Faculty Reflection</h2><p>A brief reflective note on the ICT-integrated session.</p></div>
+          <div class="sec-actions">
+            <span class="save-status" id="qsStatus3"></span>
+            <button class="btn btn-ghost" id="btnQuickSave3" type="button">💾 Save Progress</button>
+          </div>
         </div>
         <div class="field"><label class="label" for="rStrengths">Strengths of ICT Integration</label>
           <textarea id="rStrengths" rows="3" placeholder="What worked well? Learner engagement, concept clarity, participation…"></textarea></div>
@@ -1168,16 +1182,22 @@ async function compressEntryFiles(entries, onProgress){
   return { compressed, failed };
 }
 
-/* ---------- save to database ---------- */
-async function saveToDatabase(data){
-  const statusEl = $('#saveStatus');
-  const btn = $('#btnSave');
-  statusEl.className = 'save-status';
-  statusEl.textContent = '';
+/* ---------- save to database ----------
+   opts.statusEl / opts.btn let a caller point this at its own status line
+   and button (used by the per-segment "Save Progress" buttons) instead of
+   the main report's #saveStatus / #btnSave. opts.skipFeedbackLinks skips
+   rendering the QR/feedback-link cards, since a mid-form quick save has
+   nowhere sensible to put them and often has no ICT tool entries yet. */
+async function saveToDatabase(data, opts = {}){
+  const statusEl = opts.statusEl || $('#saveStatus');
+  const btn = opts.btn || $('#btnSave');
+  const skipFeedbackLinks = !!opts.skipFeedbackLinks;
+  if(statusEl){ statusEl.className = 'save-status'; statusEl.textContent = ''; }
   if(btn) btn.disabled = true;
 
   try {
     if (!db) {
+
       throw new Error('Database not connected — Firebase config still has placeholder values. See the setup guide.');
     }
     if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.firestore.FieldValue) {
@@ -1202,7 +1222,7 @@ async function saveToDatabase(data){
     // mutates data.entries[i].<kind>.compressedSrc in place (existing
     // compressed data from a loaded report, never replaced, is left alone).
     let compressResult = { compressed: 0, failed: 0 };
-    if(statusEl){ statusEl.textContent = 'Compressing images…'; }
+    if(statusEl) statusEl.textContent = 'Compressing images…';
     compressResult = await compressEntryFiles(data.entries);
 
     // Image bytes go on each entry's OWN ictEntries document, never on the
@@ -1264,9 +1284,11 @@ async function saveToDatabase(data){
       if(e.el) e.el.dataset.entryId = entryRefs[i].id;
     });
 
-    statusEl.textContent = (isUpdate ? 'Updated the saved report.' : 'Saved to database.') +
-      (compressResult.failed ? ` (${compressResult.failed} image${compressResult.failed === 1 ? '' : 's'} couldn't be compressed — filenames were still saved.)` : '');
-    statusEl.classList.add(compressResult.failed ? 'warn' : 'ok');
+    if(statusEl){
+      statusEl.textContent = (isUpdate ? 'Updated the saved report.' : 'Saved to database.') +
+        (compressResult.failed ? ` (${compressResult.failed} image${compressResult.failed === 1 ? '' : 's'} couldn't be compressed — filenames were still saved.)` : '');
+      statusEl.classList.add(compressResult.failed ? 'warn' : 'ok');
+    }
     toast(isUpdate ? 'Report updated ✔' : 'Saved to database ✔');
     
     // Calculate expiration (15 days from now)
@@ -1278,15 +1300,21 @@ async function saveToDatabase(data){
       entryRefs[i].update({ expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt) });
     });
 
-    renderFeedbackLinks(
-      data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })),
-      expiresAt
-    );
-    if(btn) btn.textContent = '💾 Update Saved Report';
+    if(!skipFeedbackLinks && data.entries.length){
+      renderFeedbackLinks(
+        data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })),
+        expiresAt
+      );
+    }
+    if(btn && btn.id === 'btnSave') btn.textContent = '💾 Update Saved Report';
   } catch (e) {
-    statusEl.textContent = 'Save failed: ' + e.message;
-    statusEl.classList.add('err');
-    toast('Save failed — see the message below the buttons', 'warn');
+    if(statusEl){
+      statusEl.textContent = 'Save failed: ' + e.message;
+      statusEl.classList.add('err');
+      toast('Save failed — see the message below', 'warn');
+    } else {
+      toast('Save failed: ' + e.message, 'warn');
+    }
   } finally {
     if(btn) btn.disabled = false;
   }
@@ -1476,17 +1504,21 @@ async function downloadPDF(){
       if(h > pageH - marginTop * 2){
         // Block itself is taller than one full page (e.g. many ICT tool
         // entries with photos). No way to keep it whole — slice it across
-        // as many pages as it needs, each slice using the full page.
+        // as many pages as it needs. Each slice reserves the SAME top and
+        // bottom margin (marginTop) as every other page in the report —
+        // previously this branch drew edge-to-edge with zero margin, which
+        // is why spacing looked uneven from page to page.
         if(y > marginTop){ pdf.addPage(); pageNum++; }
+        const usableH = pageH - marginTop * 2;
         let drawnSoFar = 0;
-        pdf.addImage(img, 'PNG', marginX, 0, usableW, h);
-        placeLinks(links, rect, pxToMm, pageNum, 0, 0, pageH);
-        drawnSoFar = pageH;
+        pdf.addImage(img, 'PNG', marginX, marginTop, usableW, h);
+        placeLinks(links, rect, pxToMm, pageNum, marginTop, marginTop, marginTop + usableH);
+        drawnSoFar = usableH;
         while(drawnSoFar < h){
           pdf.addPage(); pageNum++;
-          pdf.addImage(img, 'PNG', marginX, -drawnSoFar, usableW, h);
-          placeLinks(links, rect, pxToMm, pageNum, -drawnSoFar, 0, pageH);
-          drawnSoFar += pageH;
+          pdf.addImage(img, 'PNG', marginX, marginTop - drawnSoFar, usableW, h);
+          placeLinks(links, rect, pxToMm, pageNum, marginTop - drawnSoFar, marginTop, marginTop + usableH);
+          drawnSoFar += usableH;
         }
         // A sliced block always ends its tail on whatever page it lands
         // on — the next block MUST start on a fresh page, or it gets drawn
@@ -1555,6 +1587,30 @@ $('#btnAddTop').addEventListener('click', addEntry);
 $('#btnAddBottom').addEventListener('click', addEntry);
 $('#btnGenerate').addEventListener('click', generateReport);
 $('#btnPulseGen').addEventListener('click', generateReport);
+
+/* ---------- per-segment "Save Progress" buttons ----------
+   Lets a faculty member save whatever's filled in so far — even before
+   any ICT tool entry or reflection note exists — without needing to
+   press "Generate Report" first. All three buttons write through the
+   same saveToDatabase() used by the main report, just pointed at their
+   own status line and button, and skip the feedback-link cards since
+   there's nowhere sensible to show those mid-form. */
+async function quickSave(statusEl, btn){
+  const fac = readFaculty();
+  if(!fac.name){ toast('Enter the faculty name before saving progress.', 'warn'); return; }
+  const entries = collect();
+  const refl = {
+    strengths: $('#rStrengths').value.trim(),
+    challenges: $('#rChallenges').value.trim(),
+    improvements: $('#rImprovements').value.trim()
+  };
+  const data = { fac, entries, refl };
+  currentReportData = data;
+  await saveToDatabase(data, { statusEl, btn, skipFeedbackLinks: true });
+}
+$('#btnQuickSave1').addEventListener('click', () => quickSave($('#qsStatus1'), $('#btnQuickSave1')));
+$('#btnQuickSave2').addEventListener('click', () => quickSave($('#qsStatus2'), $('#btnQuickSave2')));
+$('#btnQuickSave3').addEventListener('click', () => quickSave($('#qsStatus3'), $('#btnQuickSave3')));
 
 /* scroll reveals + masthead shadow */
 const io = new IntersectionObserver(es => es.forEach(x => {
