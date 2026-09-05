@@ -11,20 +11,12 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js"></script>
   
   <!-- jsPDF for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   
   <!-- SheetJS for Excel export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
   
-  <!-- Chart.js for effectiveness charts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  
   <style>
-    /* ════════════════════════════════════════════════════════════
-       GLOBAL STYLES
-       ════════════════════════════════════════════════════════════ */
-    
     :root {
       --navy-700: #1e3a5f;
       --navy-600: #2d5086;
@@ -33,25 +25,10 @@
       --muted: #666;
       --success: #28a745;
       --error: #dc3545;
-      --warning: #ffc107;
     }
     
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f5f5;
-      color: #333;
-      line-height: 1.6;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       HEADER STYLES
-       ════════════════════════════════════════════════════════════ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; color: #333; }
     
     header {
       background: var(--navy-700);
@@ -61,44 +38,10 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 3px solid var(--orange-500);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
-    header .logo-section {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-    
-    header .logo-section img {
-      height: 50px;
-      width: auto;
-    }
-    
-    header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin: 0;
-    }
-    
-    header p {
-      font-size: 0.85rem;
-      opacity: 0.9;
-      margin: 5px 0 0 0;
-    }
-    
-    header .header-right {
-      text-align: right;
-      font-size: 0.9rem;
-    }
-    
-    header .header-right div:first-child {
-      font-weight: 600;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       ACCESS CONTROL STYLES
-       ════════════════════════════════════════════════════════════ */
+    header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+    header .header-right { text-align: right; font-size: 0.9rem; }
     
     #accessControlSection {
       max-width: 500px;
@@ -125,13 +68,9 @@
       display: block;
       margin-bottom: 8px;
       font-weight: 600;
-      color: #333;
     }
     
-    .form-group input[type="text"],
-    .form-group input[type="password"],
-    .form-group input[type="email"],
-    .form-group input[type="number"],
+    .form-group input,
     .form-group select,
     .form-group textarea {
       width: 100%;
@@ -139,7 +78,6 @@
       border: 1px solid var(--line);
       border-radius: 6px;
       font-size: 1rem;
-      font-family: inherit;
     }
     
     #employeeID {
@@ -162,19 +100,13 @@
       padding: 15px;
       border-radius: 6px;
       margin-bottom: 20px;
-      text-align: center;
       border: 1px solid #f5c6cb;
     }
     
-    #accessError strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-    
     button {
-      font-size: 1rem;
       cursor: pointer;
       transition: all 0.3s ease;
+      font-size: 1rem;
     }
     
     #loadButton {
@@ -185,26 +117,12 @@
       border: none;
       border-radius: 6px;
       font-weight: 600;
-      font-size: 1rem;
     }
     
     #loadButton:hover {
       background: var(--navy-600);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
     }
-    
-    .security-notice {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 0.9rem;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       LOGGED IN SECTION
-       ════════════════════════════════════════════════════════════ */
     
     #loggedInSection {
       display: none;
@@ -213,7 +131,6 @@
       border-radius: 6px;
       margin-bottom: 20px;
       border-left: 4px solid var(--navy-700);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
     #loggedInSection > div {
@@ -221,23 +138,6 @@
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 15px;
-    }
-    
-    #loggedInSection span {
-      font-weight: 600;
-    }
-    
-    #displayEmployeeID {
-      color: var(--navy-700);
-      font-weight: 700;
-      font-family: 'Courier New', monospace;
-    }
-    
-    .locked-badge {
-      color: var(--muted);
-      font-size: 0.9rem;
-      font-weight: normal;
     }
     
     #logoutButton {
@@ -250,27 +150,13 @@
       font-weight: 600;
     }
     
-    #logoutButton:hover {
-      background: #c82333;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       MAIN CONTAINER
-       ════════════════════════════════════════════════════════════ */
-    
     #mainContainer {
       max-width: 900px;
       margin: 20px auto;
       padding: 0 15px;
     }
     
-    #mainFormSections {
-      display: none;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       SEGMENT CONTAINERS
-       ════════════════════════════════════════════════════════════ */
+    #mainFormSections { display: none; }
     
     .segment-container {
       background: white;
@@ -278,7 +164,6 @@
       border-radius: 8px;
       margin-bottom: 25px;
       border: 1px solid var(--line);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
     .segment-header {
@@ -289,7 +174,6 @@
       padding-bottom: 15px;
       border-bottom: 2px solid var(--orange-500);
       flex-wrap: wrap;
-      gap: 15px;
     }
     
     .segment-header h2 {
@@ -302,7 +186,6 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
     }
     
     .save-btn {
@@ -311,13 +194,8 @@
       color: #fff;
       border: none;
       border-radius: 6px;
-      cursor: pointer;
       font-weight: 600;
       font-size: 0.9rem;
-    }
-    
-    .save-btn:hover {
-      background: var(--navy-600);
     }
     
     .segment-status {
@@ -326,17 +204,7 @@
       padding: 4px 8px;
       background: #e9ecef;
       border-radius: 4px;
-      transition: all 0.3s ease;
     }
-    
-    .segment-status.saved {
-      color: var(--success);
-      background: #d4edda;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       FORM FIELDS
-       ════════════════════════════════════════════════════════════ */
     
     .form-row {
       display: grid;
@@ -350,215 +218,29 @@
       min-height: 100px;
     }
     
-    .form-group input:disabled,
-    .form-group input[readonly] {
-      background: #f5f5f5;
-      cursor: not-allowed;
-      color: #666;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       FEEDBACK LINKS SECTION
-       ════════════════════════════════════════════════════════════ */
-    
-    .feedback-links-box {
-      background: white;
-      padding: 25px;
-      border-radius: 8px;
-      margin-top: 30px;
-      border: 1px solid var(--line);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .feedback-links-box h3 {
-      color: var(--navy-700);
-      margin-bottom: 10px;
-    }
-    
-    .feedback-links-box > p {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 20px;
-    }
-    
-    .qr-expired-banner {
-      background: #f8d7da;
-      border: 1px solid #dc3545;
-      color: #721c24;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      text-align: center;
-      font-weight: 600;
-    }
-    
-    .feedback-links-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-    
-    .feedback-link-card {
-      border: 1px solid var(--line);
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
+    .ict-entry {
       background: #fafafa;
-      transition: all 0.3s ease;
-    }
-    
-    .feedback-link-card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      transform: translateY(-2px);
-    }
-    
-    .feedback-link-card b {
-      display: block;
-      margin-bottom: 12px;
-      color: var(--navy-700);
-      font-size: 1rem;
-    }
-    
-    .feedback-link-card img {
-      width: 120px;
-      height: 120px;
-      margin: 10px auto;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
       border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 2px;
     }
-    
-    .fl-url-row {
-      display: flex;
-      gap: 8px;
-      margin: 12px 0;
-    }
-    
-    .fl-url {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-family: monospace;
-    }
-    
-    .fl-copy {
-      padding: 8px 12px;
-      background: var(--navy-700);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    
-    .fl-copy:hover {
-      background: var(--navy-600);
-    }
-    
-    .qr-card-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-      justify-content: center;
-    }
-    
-    .btn-download-qr {
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--navy-700);
-      background: #fff;
-      color: var(--navy-700);
-      cursor: pointer;
-      transition: 0.18s;
-      flex: 1;
-    }
-    
-    .btn-download-qr:hover {
-      background: var(--navy-700);
-      color: #fff;
-    }
-    
-    .qr-countdown {
-      font-size: 0.78rem;
-      color: var(--muted);
-      text-align: center;
-      margin-top: 10px;
-      padding: 8px;
-      border-radius: 6px;
-      background: #f0f5fc;
-      border: 1px solid #d7e3f5;
-    }
-    
-    .qr-countdown.expiring-soon {
-      background: #fff3cd;
-      border-color: #ffc107;
-      color: #856404;
-    }
-    
-    .qr-countdown.expired {
-      background: #f8d7da;
-      border-color: #dc3545;
-      color: #721c24;
-      font-weight: 600;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       ACTION BUTTONS
-       ════════════════════════════════════════════════════════════ */
     
     .action-buttons {
       display: flex;
       gap: 10px;
       margin: 20px 0;
       flex-wrap: wrap;
-      justify-content: center;
-    }
-    
-    .action-buttons button {
-      padding: 12px 20px;
-      border: none;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
     }
     
     .btn-primary {
       background: var(--navy-700);
       color: #fff;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
     }
-    
-    .btn-primary:hover {
-      background: var(--navy-600);
-      box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
-    }
-    
-    .btn-secondary {
-      background: #6c757d;
-      color: #fff;
-    }
-    
-    .btn-secondary:hover {
-      background: #5a6268;
-    }
-    
-    .btn-success {
-      background: var(--success);
-      color: #fff;
-    }
-    
-    .btn-success:hover {
-      background: #218838;
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       STATUS & NOTIFICATIONS
-       ════════════════════════════════════════════════════════════ */
     
     #saveStatus {
       padding: 12px 15px;
@@ -572,21 +254,6 @@
     #saveStatus.ok {
       background: #d4edda;
       color: #155724;
-      border: 1px solid #c3e6cb;
-      display: block;
-    }
-    
-    #saveStatus.warn {
-      background: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeeba;
-      display: block;
-    }
-    
-    #saveStatus.error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
       display: block;
     }
     
@@ -597,192 +264,94 @@
       padding: 15px 20px;
       border-radius: 6px;
       color: #fff;
-      font-weight: 600;
       z-index: 1000;
-      animation: slideIn 0.3s ease;
     }
     
-    .toast.ok {
-      background: var(--success);
-    }
-    
-    .toast.warn {
-      background: var(--warning);
-      color: #333;
-    }
-    
-    .toast.error {
-      background: var(--error);
-    }
-    
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       RESPONSIVE
-       ════════════════════════════════════════════════════════════ */
+    .toast.ok { background: var(--success); }
+    .toast.error { background: var(--error); }
     
     @media (max-width: 768px) {
-      header {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-      }
-      
-      header .logo-section {
-        flex-direction: column;
-      }
-      
-      header h1 {
-        font-size: 1.2rem;
-      }
-      
-      .segment-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      
-      .segment-actions {
-        width: 100%;
-      }
-      
-      .feedback-links-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .action-buttons {
-        flex-direction: column;
-      }
-      
-      .action-buttons button {
-        width: 100%;
-      }
-    }
-    
-    /* ════════════════════════════════════════════════════════════
-       PRINT STYLES
-       ════════════════════════════════════════════════════════════ */
-    
-    @media print {
-      header {
-        display: none;
-      }
-      
-      #accessControlSection,
-      .action-buttons,
-      .save-btn,
-      #logoutButton {
-        display: none;
-      }
+      header { flex-direction: column; }
+      .segment-header { flex-direction: column; align-items: flex-start; }
+      .action-buttons { flex-direction: column; }
+      .action-buttons button { width: 100%; }
     }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════════════════ -->
-
 <header>
-  <div class="logo-section">
-    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='%231e3a5f' stroke-width='2'/%3E%3Ctext x='50' y='55' font-size='24' font-weight='bold' text-anchor='middle' fill='%231e3a5f'%3EGNC%3C/text%3E%3C/svg%3E" alt="GNC Logo">
-    <div>
-      <h1>GURU NANAK COLLEGE (AUTONOMOUS)</h1>
-      <p>Faculty ICT Usage Visual Report System</p>
-    </div>
+  <div>
+    <h1>GURU NANAK COLLEGE (AUTONOMOUS)</h1>
+    <p style="margin:5px 0 0 0; font-size:.85rem;">Faculty ICT Usage Visual Report System</p>
   </div>
   <div class="header-right">
-    <div>ICT Usage Documentation</div>
-    <div style="font-size: 0.8rem; opacity: 0.8;">Guru Nanak College</div>
+    <div style="font-weight:600;">ICT Usage Documentation</div>
+    <div style="font-size:.8rem;">Guru Nanak College</div>
   </div>
 </header>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     ACCESS CONTROL SECTION
-     ═══════════════════════════════════════════════════════════════════ -->
-
+<!-- ACCESS CONTROL -->
 <div id="accessControlSection">
   <h2>Load Your Report</h2>
   
   <div class="form-group">
     <label for="employeeID">Employee ID (EMPTS format)</label>
     <input id="employeeID" type="text" placeholder="EMPTS2254" autocomplete="off">
-    <small>Example: EMPTS2254 | Once entered, this will be LOCKED for your session</small>
+    <small>Example: EMPTS2254 | Once entered, locked for session</small>
   </div>
   
   <div id="accessError"></div>
   
   <button id="loadButton" type="button">Load My Report</button>
   
-  <div class="security-notice">
-    🔒 Your data is private and secure.<br>
-    You can only access your own report.
+  <div style="text-align:center; margin-top:20px; font-size:.9rem; color:var(--muted);">
+    🔒 Your data is private and secure.
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     MAIN CONTAINER
-     ═══════════════════════════════════════════════════════════════════ -->
-
+<!-- MAIN CONTAINER -->
 <div id="mainContainer">
   
-  <!-- Logged In Section -->
   <div id="loggedInSection">
     <div>
-      <span>Employee ID:</span>
-      <span id="displayEmployeeID"></span>
-      <span class="locked-badge">(Locked)</span>
+      <span>Employee ID: <strong id="displayEmployeeID"></strong> (Locked)</span>
       <button id="logoutButton" type="button">Logout</button>
     </div>
   </div>
   
-  <!-- Main Form Sections -->
   <div id="mainFormSections">
     
-    <!-- ═══════════════════════════════════════════════════════════════
-         SEGMENT 01: FACULTY DETAILS
-         ═══════════════════════════════════════════════════════════════ -->
-    
-    <div id="segment01Container" class="segment-container">
+    <!-- SEGMENT 01 -->
+    <div class="segment-container">
       <div class="segment-header">
         <h2>Segment 01: Faculty Details</h2>
         <div class="segment-actions">
-          <button id="saveSegment01" class="save-btn" type="button">💾 Save Segment 01</button>
-          <span id="segment01Status" class="segment-status">Not saved</span>
+          <button class="save-btn" id="saveSegment01" type="button">💾 Save</button>
+          <span class="segment-status" id="segment01Status">Not saved</span>
         </div>
       </div>
       
       <div class="form-row">
         <div class="form-group">
-          <label for="displayEmployeeIDSegment01">Employee ID (Locked)</label>
+          <label>Employee ID (Locked)</label>
           <input id="displayEmployeeIDSegment01" type="text" readonly>
-          <small>Automatically locked after entry</small>
         </div>
-        
         <div class="form-group">
-          <label for="facultyName">Faculty Name <span style="color:red;">*</span></label>
+          <label>Faculty Name <span style="color:red;">*</span></label>
           <input id="facultyName" type="text" placeholder="Dr. G. Preetha" required>
         </div>
       </div>
       
       <div class="form-row">
         <div class="form-group">
-          <label for="schoolSelect">School <span style="color:red;">*</span></label>
+          <label>School <span style="color:red;">*</span></label>
           <select id="schoolSelect" required>
             <option value="">Select School</option>
           </select>
         </div>
-        
         <div class="form-group">
-          <label for="departmentSelect">Department <span style="color:red;">*</span></label>
+          <label>Department <span style="color:red;">*</span></label>
           <select id="departmentSelect" required>
             <option value="">Select Department</option>
           </select>
@@ -791,7 +360,7 @@
       
       <div class="form-row">
         <div class="form-group">
-          <label for="shiftDropdown">Shift <span style="color:red;">*</span></label>
+          <label>Shift <span style="color:red;">*</span></label>
           <select id="shiftDropdown" required>
             <option value="">Select Shift</option>
             <option value="SFS I">SFS I</option>
@@ -801,87 +370,62 @@
       </div>
     </div>
     
-    <!-- ═══════════════════════════════════════════════════════════════
-         SEGMENT 02: ICT TOOLS
-         ═══════════════════════════════════════════════════════════════ -->
-    
-    <div id="segment02Container" class="segment-container">
+    <!-- SEGMENT 02 -->
+    <div class="segment-container">
       <div class="segment-header">
         <h2>Segment 02: ICT Tools Used</h2>
         <div class="segment-actions">
-          <button id="addToolBtn" class="save-btn" type="button" style="background:#28a745;">➕ Add Tool</button>
-          <button id="saveSegment02" class="save-btn" type="button">💾 Save Segment 02</button>
-          <span id="segment02Status" class="segment-status">Not saved</span>
+          <button class="save-btn" id="addToolBtn" type="button" style="background:#28a745;">➕ Add</button>
+          <button class="save-btn" id="saveSegment02" type="button">💾 Save</button>
+          <span class="segment-status" id="segment02Status">Not saved</span>
         </div>
       </div>
-      
       <div id="toolsContainer"></div>
-      
-      <div style="margin-top:15px; padding:12px; background:#f0f5fc; border-radius:6px; color:var(--muted); font-size:0.9rem;">
-        <strong>Note:</strong> Add all ICT tools you used for teaching this course. Each tool will get a unique QR code for student feedback.
-      </div>
     </div>
     
-    <!-- ═══════════════════════════════════════════════════════════════
-         SEGMENT 03: FACULTY REFLECTION
-         ═══════════════════════════════════════════════════════════════ -->
-    
-    <div id="segment03Container" class="segment-container">
+    <!-- SEGMENT 03 -->
+    <div class="segment-container">
       <div class="segment-header">
         <h2>Segment 03: Faculty Reflection</h2>
         <div class="segment-actions">
-          <button id="saveSegment03" class="save-btn" type="button">💾 Save Segment 03</button>
-          <span id="segment03Status" class="segment-status">Not saved</span>
+          <button class="save-btn" id="saveSegment03" type="button">💾 Save</button>
+          <span class="segment-status" id="segment03Status">Not saved</span>
         </div>
       </div>
       
       <div class="form-group">
-        <label for="reflection">Your Experience with ICT Tools</label>
-        <textarea id="reflection" placeholder="Share your experience, benefits, and outcomes of using ICT tools..."></textarea>
+        <label>Your Experience with ICT Tools</label>
+        <textarea id="reflection"></textarea>
       </div>
-      
       <div class="form-group">
-        <label for="challenges">Challenges Faced</label>
-        <textarea id="challenges" placeholder="Describe any challenges you faced while using these tools..."></textarea>
+        <label>Challenges Faced</label>
+        <textarea id="challenges"></textarea>
       </div>
-      
       <div class="form-group">
-        <label for="suggestions">Suggestions for Improvement</label>
-        <textarea id="suggestions" placeholder="Your suggestions to improve ICT usage in teaching..."></textarea>
+        <label>Suggestions for Improvement</label>
+        <textarea id="suggestions"></textarea>
       </div>
     </div>
-    
-    <!-- ═══════════════════════════════════════════════════════════════
-         STATUS & ACTION BUTTONS
-         ═══════════════════════════════════════════════════════════════ -->
     
     <div id="saveStatus"></div>
     
     <div class="action-buttons">
       <button id="btnSave" class="btn-primary" type="button">💾 Save to Database</button>
-      <button id="btnUpdate" class="btn-primary" type="button" style="display:none;">🔄 Update Saved Report</button>
-      <button id="btnRefresh" class="btn-secondary" type="button">🔄 Refresh with Feedback</button>
-      <button id="btnPDF" class="btn-success" type="button">📄 Download PDF</button>
-      <button id="btnExcel" class="btn-success" type="button">📊 Download Excel</button>
+      <button id="btnUpdate" class="btn-primary" type="button" style="display:none;">🔄 Update Report</button>
+      <button id="btnPDF" class="btn-primary" type="button">📄 Download PDF</button>
+      <button id="btnExcel" class="btn-primary" type="button">📊 Download Excel</button>
     </div>
   </div>
   
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     JAVASCRIPT
-     ═══════════════════════════════════════════════════════════════════ -->
-
 <script>
-/* ═══════════════════════════════════════════════════════════════════
-   FIREBASE INITIALIZATION
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* FIREBASE CONFIG - REPLACE WITH YOUR ACTUAL CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyDyNVNqMcD0_4Xc-2nYeEeGwTjV8Yq5JKE",
   authDomain: "guru-nanak-ict.firebaseapp.com",
-  projectId: "guru-nanak-ict",
-  storageBucket: "guru-nanak-ict.appspot.com",
+  projectId: "faculty-ict-report",
+  storageBucket: "faculty-ict-report.appspot.com",
   messagingSenderId: "123456789000",
   appId: "1:123456789000:web:abcdef1234567890"
 };
@@ -889,198 +433,88 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* ═══════════════════════════════════════════════════════════════════
-   SCHOOLS AND DEPARTMENTS (HARDCODED FROM PDF)
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* SCHOOLS & DEPARTMENTS */
 const SCHOOLS_AND_DEPARTMENTS = {
-  'School of Humanities': [
-    'B.A. Defence and Strategic Studies',
-    'B.A. Economics',
-    'B.A. English',
-    'B.A. History',
-    'B.A. Political Science',
-    'M.A. Defence and Strategic Studies',
-    'M.A. Economics'
-  ],
-  'School of Management': [
-    'B.B.A.',
-    'B.B.A. Retail Management',
-    'B.B.A. Tourism Management',
-    'B.B.A. Hotel Management',
-    'M.B.A.'
-  ],
-  'School of Information Technology': [
-    'B.C.A.',
-    'B.C.A. Computer Applications',
-    'B.Sc. Computer Science',
-    'B.Sc. Data Science',
-    'B.Sc. Information Technology',
-    'M.C.A.',
-    'M.Sc. Computer Science'
-  ],
-  'School of Commerce': [
-    'B.Com. Accounting and Finance',
-    'B.Com. Corporate Secretaryship',
-    'B.Com. General',
-    'B.Com. Honours',
-    'B.Com. Information Systems Management',
-    'M.Com. Professional Accounting'
-  ],
-  'School of Sciences': [
-    'B.Sc. Advanced Zoology',
-    'B.Sc. Biotechnology',
-    'B.Sc. Botany',
-    'B.Sc. Chemistry',
-    'B.Sc. Physics',
-    'B.Sc. Plant Biology',
-    'M.Sc. Chemistry',
-    'M.Sc. Mathematics',
-    'M.Sc. Zoology'
-  ],
-  'School of Languages': [
-    'B.A. English',
-    'B.A. French',
-    'B.A. German',
-    'B.A. Sanskrit',
-    'B.A. Tamil'
-  ]
+  'School of Humanities': ['B.A. Defence and Strategic Studies','B.A. Economics','B.A. English','B.A. History','B.A. Political Science','M.A. Defence and Strategic Studies','M.A. Economics'],
+  'School of Management': ['B.B.A.','B.B.A. Retail Management','B.B.A. Tourism Management','B.B.A. Hotel Management','M.B.A.'],
+  'School of Information Technology': ['B.C.A.','B.C.A. Computer Applications','B.Sc. Computer Science','B.Sc. Data Science','B.Sc. Information Technology','M.C.A.','M.Sc. Computer Science'],
+  'School of Commerce': ['B.Com. Accounting and Finance','B.Com. Corporate Secretaryship','B.Com. General','B.Com. Honours','B.Com. Information Systems Management','M.Com. Professional Accounting'],
+  'School of Sciences': ['B.Sc. Advanced Zoology','B.Sc. Biotechnology','B.Sc. Botany','B.Sc. Chemistry','B.Sc. Physics','B.Sc. Plant Biology','M.Sc. Chemistry','M.Sc. Mathematics','M.Sc. Zoology'],
+  'School of Languages': ['B.A. English','B.A. French','B.A. German','B.A. Sanskrit','B.A. Tamil']
 };
 
-/* ═══════════════════════════════════════════════════════════════════
-   UTILITY FUNCTIONS
-   ═══════════════════════════════════════════════════════════════════ */
-
-function $( id ) {
-  return document.getElementById( id );
-}
-
-function esc( html ) {
-  const div = document.createElement( 'div' );
-  div.textContent = html;
-  return div.innerHTML;
-}
-
-function toast( msg, type = 'ok' ) {
-  const t = document.createElement( 'div' );
+function $(id) { return document.getElementById(id); }
+function esc(html) { const div = document.createElement('div'); div.textContent = html; return div.innerHTML; }
+function toast(msg, type='ok') {
+  const t = document.createElement('div');
   t.className = 'toast ' + type;
   t.textContent = msg;
-  document.body.appendChild( t );
+  document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
 }
 
-function showError( msg ) {
-  const errorDiv = $('accessError');
-  errorDiv.innerHTML = '<strong>⚠️ Access Denied</strong><br>' + msg;
-  errorDiv.style.display = 'block';
+function showError(msg) {
+  $('accessError').innerHTML = msg;
+  $('accessError').style.display = 'block';
 }
 
 function hideError() {
   $('accessError').style.display = 'none';
 }
 
-function validateEmployeeIDFormat( id ) {
-  return /^EMPTS\d{4}$/.test( id.toUpperCase() );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   ACCESS CONTROL & SESSION MANAGEMENT
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* ACCESS CONTROL */
 function initializeAccessControl() {
-  const loggedInEmployee = sessionStorage.getItem('loggedInEmployee');
-  
-  if (loggedInEmployee) {
-    showLoggedInView(loggedInEmployee);
+  const loggedIn = sessionStorage.getItem('loggedInEmployee');
+  if (loggedIn) {
+    showLoggedInView(loggedIn);
   } else {
     $('accessControlSection').style.display = 'block';
-    $('mainFormSections').style.display = 'none';
     $('loadButton').addEventListener('click', handleLoadReport);
   }
 }
 
 function handleLoadReport() {
-  const employeeID = $('employeeID').value.trim().toUpperCase();
-  
-  // Validate format
-  if (!validateEmployeeIDFormat(employeeID)) {
-    showError('Invalid format. Please use format: EMPTS2254');
+  const empID = $('employeeID').value.trim().toUpperCase();
+  if (!empID.match(/^EMPTS\d{4}$/)) {
+    showError('Invalid format. Use: EMPTS2254');
     return;
   }
   
   hideError();
-  
-  // Store in session
-  sessionStorage.setItem('loggedInEmployee', employeeID);
-  
-  // Show logged-in view
-  showLoggedInView(employeeID);
+  sessionStorage.setItem('loggedInEmployee', empID);
+  showLoggedInView(empID);
 }
 
-function showLoggedInView(employeeID) {
-  // Hide access control
+function showLoggedInView(empID) {
   $('accessControlSection').style.display = 'none';
-  hideError();
-  
-  // Show logged-in section & forms
   $('loggedInSection').style.display = 'block';
   $('mainFormSections').style.display = 'block';
-  $('displayEmployeeID').textContent = employeeID;
-  $('displayEmployeeIDSegment01').value = employeeID;
+  $('displayEmployeeID').textContent = empID;
+  $('displayEmployeeIDSegment01').value = empID;
   
-  // Setup logout button
-  $('logoutButton').addEventListener('click', handleLogout);
-  
-  // Load employee data
-  loadEmployeeData(employeeID);
-  
-  // Resume from local storage
-  resumeFromLocalStorage(employeeID);
-  
-  // Setup schools dropdown
-  populateSchoolDropdown();
-  
-  // Setup event listeners
-  setupEventListeners(employeeID);
-}
-
-function handleLogout() {
-  if (confirm('Are you sure you want to logout? Any unsaved changes will be lost.')) {
-    sessionStorage.clear();
-    const emp = sessionStorage.getItem('loggedInEmployee');
-    if (emp) {
-      localStorage.removeItem('segment01_' + emp);
-      localStorage.removeItem('segment02_' + emp);
-      localStorage.removeItem('segment03_' + emp);
+  $('logoutButton').addEventListener('click', () => {
+    if (confirm('Logout?')) {
+      sessionStorage.clear();
+      location.reload();
     }
-    location.reload();
-  }
+  });
+  
+  loadEmployeeData(empID);
+  populateSchoolDropdown();
+  setupEventListeners();
 }
 
-function validateDataAccess(employeeID) {
-  const loggedInEmployee = sessionStorage.getItem('loggedInEmployee');
-  if (employeeID !== loggedInEmployee) {
-    showError('⚠️ You can only access your own report (ID: ' + loggedInEmployee + ')');
-    return false;
-  }
-  return true;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   DATA LOADING & RESUMPTION
-   ═══════════════════════════════════════════════════════════════════ */
-
-async function loadEmployeeData(employeeID) {
+/* LOAD DATA - Search by employeeID field */
+async function loadEmployeeData(empID) {
   try {
+    // CORRECTED: Query by employeeID field, not document ID
     const snapshot = await db.collection('facultyICTReports')
-      .where('employeeID', '==', employeeID)
+      .where('employeeID', '==', empID)
       .limit(1)
       .get();
     
     if (!snapshot.empty) {
       const data = snapshot.docs[0].data();
-      
-      // Populate form fields
       $('facultyName').value = data.facultyName || '';
       $('schoolSelect').value = data.school || '';
       $('departmentSelect').value = data.department || '';
@@ -1089,294 +523,171 @@ async function loadEmployeeData(employeeID) {
       $('challenges').value = data.challenges || '';
       $('suggestions').value = data.suggestions || '';
       
-      // Populate ICT tools
       if (data.entries && Array.isArray(data.entries)) {
-        data.entries.forEach(entry => {
-          addToolRow(entry);
-        });
+        data.entries.forEach(e => addToolRow(e));
       }
       
-      // Show update button instead of save
       $('btnSave').style.display = 'none';
       $('btnUpdate').style.display = 'inline-block';
     }
   } catch(e) {
-    console.error('Error loading employee data:', e);
+    console.error('Load error:', e);
   }
 }
 
-function resumeFromLocalStorage(employeeID) {
-  const segment01 = localStorage.getItem('segment01_' + employeeID);
-  const segment02 = localStorage.getItem('segment02_' + employeeID);
-  const segment03 = localStorage.getItem('segment03_' + employeeID);
-  
-  if (segment01) {
-    const data = JSON.parse(segment01);
-    $('facultyName').value = data.facultyName || '';
-    $('schoolSelect').value = data.school || '';
-    $('departmentSelect').value = data.department || '';
-    $('shiftDropdown').value = data.shift || '';
-    $('segment01Status').textContent = '✅ Resumed';
-    $('segment01Status').classList.add('saved');
-  }
-  
-  if (segment02) {
-    const data = JSON.parse(segment02);
-    $('segment02Status').textContent = '✅ Resumed';
-    $('segment02Status').classList.add('saved');
-  }
-  
-  if (segment03) {
-    const data = JSON.parse(segment03);
-    $('reflection').value = data.reflection || '';
-    $('challenges').value = data.challenges || '';
-    $('suggestions').value = data.suggestions || '';
-    $('segment03Status').textContent = '✅ Resumed';
-    $('segment03Status').classList.add('saved');
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   SCHOOLS & DEPARTMENTS DROPDOWN
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* SCHOOLS & DEPARTMENTS */
 function populateSchoolDropdown() {
   const schoolSelect = $('schoolSelect');
   Object.keys(SCHOOLS_AND_DEPARTMENTS).forEach(school => {
-    const option = document.createElement('option');
-    option.value = school;
-    option.textContent = school;
-    schoolSelect.appendChild(option);
+    const opt = document.createElement('option');
+    opt.value = school;
+    opt.textContent = school;
+    schoolSelect.appendChild(opt);
   });
-  
   schoolSelect.addEventListener('change', populateDepartmentDropdown);
 }
 
 function populateDepartmentDropdown() {
   const schoolSelect = $('schoolSelect');
   const deptSelect = $('departmentSelect');
-  const selectedSchool = schoolSelect.value;
+  const school = schoolSelect.value;
   
-  // Clear existing options
   deptSelect.innerHTML = '<option value="">Select Department</option>';
-  
-  // Add department options
-  if (selectedSchool && SCHOOLS_AND_DEPARTMENTS[selectedSchool]) {
-    SCHOOLS_AND_DEPARTMENTS[selectedSchool].forEach(dept => {
-      const option = document.createElement('option');
-      option.value = dept;
-      option.textContent = dept;
-      deptSelect.appendChild(option);
+  if (school && SCHOOLS_AND_DEPARTMENTS[school]) {
+    SCHOOLS_AND_DEPARTMENTS[school].forEach(dept => {
+      const opt = document.createElement('option');
+      opt.value = dept;
+      opt.textContent = dept;
+      deptSelect.appendChild(opt);
     });
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   ICT TOOLS MANAGEMENT
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* ICT TOOLS */
 let toolCount = 0;
-
-function addToolRow(data = {}) {
+function addToolRow(data={}) {
   const container = $('toolsContainer');
-  const toolIndex = toolCount++;
+  const idx = toolCount++;
   
-  const toolRow = document.createElement('div');
-  toolRow.className = 'ict-entry';
-  toolRow.id = 'tool_' + toolIndex;
-  toolRow.style.background = '#fafafa';
-  toolRow.style.padding = '15px';
-  toolRow.style.borderRadius = '6px';
-  toolRow.style.marginBottom = '15px';
-  toolRow.style.border = '1px solid var(--line)';
+  const row = document.createElement('div');
+  row.className = 'ict-entry';
+  row.id = 'tool_' + idx;
   
-  toolRow.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <h4 style="margin:0; color:var(--navy-700);">Tool #${toolIndex + 1}</h4>
-      <button type="button" class="removeTool" data-index="${toolIndex}" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">🗑️ Remove</button>
+  row.innerHTML = `
+    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+      <h4 style="margin:0;">Tool #${idx+1}</h4>
+      <button type="button" class="removeTool" data-idx="${idx}" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer;">Remove</button>
     </div>
-    
     <div class="form-row">
       <div class="form-group">
         <label>ICT Tool Name</label>
-        <input type="text" class="tool-name" data-index="${toolIndex}" placeholder="e.g., Google Classroom" value="${data.tool || ''}">
+        <input type="text" class="tool-name" data-idx="${idx}" placeholder="Google Classroom" value="${data.tool || ''}">
       </div>
       <div class="form-group">
-        <label>Purpose of Use</label>
-        <textarea class="tool-purpose" data-index="${toolIndex}" placeholder="How did you use this tool?" style="min-height:80px;">${data.purpose || ''}</textarea>
+        <label>Purpose</label>
+        <textarea class="tool-purpose" data-idx="${idx}" style="min-height:60px;">${data.purpose || ''}</textarea>
       </div>
     </div>
-    
     <div class="form-row">
       <div class="form-group">
         <label>No. of Sessions</label>
-        <input type="number" class="tool-sessions" data-index="${toolIndex}" placeholder="Number of times used" value="${data.sessions || ''}" min="0">
+        <input type="number" class="tool-sessions" data-idx="${idx}" value="${data.sessions || ''}" min="0">
       </div>
       <div class="form-group">
-        <label>Effectiveness Score (1-10)</label>
-        <input type="number" class="tool-effectiveness" data-index="${toolIndex}" placeholder="1-10" value="${data.effectiveness || ''}" min="1" max="10">
+        <label>Effectiveness (1-10)</label>
+        <input type="number" class="tool-effectiveness" data-idx="${idx}" value="${data.effectiveness || ''}" min="1" max="10">
       </div>
     </div>
   `;
   
-  container.appendChild(toolRow);
-  
-  // Add remove listener
-  toolRow.querySelector('.removeTool').addEventListener('click', (e) => {
-    removeTool(e.target.dataset.index);
+  container.appendChild(row);
+  row.querySelector('.removeTool').addEventListener('click', (e) => {
+    document.getElementById('tool_' + e.target.dataset.idx).remove();
   });
 }
 
-function removeTool(index) {
-  const toolElement = document.getElementById('tool_' + index);
-  if (toolElement) {
-    toolElement.remove();
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   SEGMENT SAVE FUNCTIONS
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* SAVE SEGMENTS */
 function saveSegment01() {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  
-  const segment01Data = {
-    employeeID: employeeID,
+  const empID = sessionStorage.getItem('loggedInEmployee');
+  const data = {
+    employeeID: empID,
     facultyName: $('facultyName').value,
     school: $('schoolSelect').value,
     department: $('departmentSelect').value,
-    shift: $('shiftDropdown').value,
-    timestamp: new Date().toISOString()
+    shift: $('shiftDropdown').value
   };
   
   try {
-    localStorage.setItem('segment01_' + employeeID, JSON.stringify(segment01Data));
-    
-    const statusEl = $('segment01Status');
-    statusEl.textContent = '✅ Saved';
-    statusEl.classList.add('saved');
-    toast('Segment 01 saved successfully', 'ok');
-    
-    setTimeout(() => {
-      statusEl.textContent = 'Saved';
-    }, 3000);
-    
+    localStorage.setItem('segment01_' + empID, JSON.stringify(data));
+    $('segment01Status').textContent = '✅ Saved';
+    toast('Segment 01 saved', 'ok');
   } catch(e) {
-    if (e.name === 'QuotaExceededError') {
-      toast('Local storage full. Delete old reports.', 'warn');
-      $('segment01Status').textContent = '❌ Storage full';
-    } else {
-      toast('Error saving: ' + e.message, 'error');
-    }
+    toast('Error: ' + e.message, 'error');
   }
 }
 
 function saveSegment02() {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  
+  const empID = sessionStorage.getItem('loggedInEmployee');
   const entries = [];
-  document.querySelectorAll('.ict-entry').forEach((el, idx) => {
+  
+  document.querySelectorAll('.ict-entry').forEach(el => {
     entries.push({
-      tool: el.querySelector('.tool-name').value || '',
-      purpose: el.querySelector('.tool-purpose').value || '',
-      sessions: el.querySelector('.tool-sessions').value || '',
-      effectiveness: el.querySelector('.tool-effectiveness').value || ''
+      tool: el.querySelector('.tool-name').value,
+      purpose: el.querySelector('.tool-purpose').value,
+      sessions: el.querySelector('.tool-sessions').value,
+      effectiveness: el.querySelector('.tool-effectiveness').value
     });
   });
   
-  const segment02Data = {
-    employeeID: employeeID,
-    entries: entries,
-    timestamp: new Date().toISOString()
-  };
-  
   try {
-    localStorage.setItem('segment02_' + employeeID, JSON.stringify(segment02Data));
-    
-    const statusEl = $('segment02Status');
-    statusEl.textContent = '✅ Saved';
-    statusEl.classList.add('saved');
-    toast('Segment 02 saved successfully', 'ok');
-    
-    setTimeout(() => {
-      statusEl.textContent = 'Saved';
-    }, 3000);
-    
+    localStorage.setItem('segment02_' + empID, JSON.stringify({employeeID: empID, entries}));
+    $('segment02Status').textContent = '✅ Saved';
+    toast('Segment 02 saved', 'ok');
   } catch(e) {
-    if (e.name === 'QuotaExceededError') {
-      toast('Local storage full. Delete old reports.', 'warn');
-      $('segment02Status').textContent = '❌ Storage full';
-    }
+    toast('Error: ' + e.message, 'error');
   }
 }
 
 function saveSegment03() {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  
-  const segment03Data = {
-    employeeID: employeeID,
+  const empID = sessionStorage.getItem('loggedInEmployee');
+  const data = {
+    employeeID: empID,
     reflection: $('reflection').value,
     challenges: $('challenges').value,
-    suggestions: $('suggestions').value,
-    timestamp: new Date().toISOString()
+    suggestions: $('suggestions').value
   };
   
   try {
-    localStorage.setItem('segment03_' + employeeID, JSON.stringify(segment03Data));
-    
-    const statusEl = $('segment03Status');
-    statusEl.textContent = '✅ Saved';
-    statusEl.classList.add('saved');
-    toast('Segment 03 saved successfully', 'ok');
-    
-    setTimeout(() => {
-      statusEl.textContent = 'Saved';
-    }, 3000);
-    
+    localStorage.setItem('segment03_' + empID, JSON.stringify(data));
+    $('segment03Status').textContent = '✅ Saved';
+    toast('Segment 03 saved', 'ok');
   } catch(e) {
-    if (e.name === 'QuotaExceededError') {
-      toast('Local storage full. Delete old reports.', 'warn');
-      $('segment03Status').textContent = '❌ Storage full';
-    }
+    toast('Error: ' + e.message, 'error');
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   SAVE TO DATABASE
-   ═══════════════════════════════════════════════════════════════════ */
-
-async function saveToDatabase(isUpdate = false) {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  
-  if (!validateDataAccess(employeeID)) return;
-  
-  // Validate required fields
-  if (!$('facultyName').value || !$('schoolSelect').value || !$('departmentSelect').value || !$('shiftDropdown').value) {
-    toast('Please fill all required fields in Segment 01', 'warn');
-    return;
-  }
-  
+/* SAVE TO DATABASE */
+async function saveToDatabase(isUpdate=false) {
+  const empID = sessionStorage.getItem('loggedInEmployee');
   const statusEl = $('saveStatus');
   statusEl.textContent = 'Saving...';
   statusEl.className = '';
   statusEl.style.display = 'block';
   
   try {
-    // Collect entries
     const entries = [];
     document.querySelectorAll('.ict-entry').forEach((el, idx) => {
       entries.push({
-        entryId: isUpdate ? (el.id || 'entry_' + employeeID + '_' + idx) : 'entry_' + employeeID + '_' + new Date().getTime() + '_' + idx,
-        tool: el.querySelector('.tool-name').value || '',
-        purpose: el.querySelector('.tool-purpose').value || '',
+        entryId: 'entry_' + empID + '_' + new Date().getTime() + '_' + idx,
+        tool: el.querySelector('.tool-name').value,
+        purpose: el.querySelector('.tool-purpose').value,
         sessions: parseInt(el.querySelector('.tool-sessions').value) || 0,
         effectiveness: parseInt(el.querySelector('.tool-effectiveness').value) || 0
       });
     });
     
     const reportData = {
-      employeeID: employeeID,
+      employeeID: empID,
       facultyName: $('facultyName').value,
       school: $('schoolSelect').value,
       department: $('departmentSelect').value,
@@ -1385,42 +696,36 @@ async function saveToDatabase(isUpdate = false) {
       reflection: $('reflection').value,
       challenges: $('challenges').value,
       suggestions: $('suggestions').value,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      ...(isUpdate ? {} : { createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    // Calculate 15-day expiration
+    if (!isUpdate) {
+      reportData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+    
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 15);
     reportData.expiresAt = firebase.firestore.Timestamp.fromDate(expiresAt);
     
-    // Save to Firestore
-    const docRef = await db.collection('facultyICTReports').doc(employeeID).set(reportData, { merge: !isUpdate });
+    // CORRECTED: Query by employeeID to get existing document, then update it
+    const snapshot = await db.collection('facultyICTReports')
+      .where('employeeID', '==', empID)
+      .limit(1)
+      .get();
     
-    // Store QR codes for each entry (don't regenerate)
-    for (let entry of entries) {
-      await getOrCreateQRCode(entry.entryId, entry.tool);
+    if (!snapshot.empty) {
+      // Update existing document
+      await snapshot.docs[0].ref.set(reportData, { merge: !isUpdate });
+    } else {
+      // Create new document (Firestore will auto-generate ID)
+      await db.collection('facultyICTReports').add(reportData);
     }
     
-    // Clear local storage
-    localStorage.removeItem('segment01_' + employeeID);
-    localStorage.removeItem('segment02_' + employeeID);
-    localStorage.removeItem('segment03_' + employeeID);
-    
-    // Reset segment statuses
-    $('segment01Status').textContent = 'Saved';
-    $('segment02Status').textContent = 'Saved';
-    $('segment03Status').textContent = 'Saved';
-    
-    statusEl.textContent = (isUpdate ? 'Report updated successfully!' : 'Report saved to database successfully!');
+    localStorage.clear();
+    statusEl.textContent = 'Saved successfully!';
     statusEl.className = 'ok';
+    toast('Report saved ✔', 'ok');
     
-    toast(isUpdate ? 'Report updated ✔' : 'Saved to database ✔', 'ok');
-    
-    // Show feedback links
-    renderFeedbackLinks(entries.map(e => ({ tool: e.tool, entryId: e.entryId })), expiresAt);
-    
-    // Update button visibility
     if (!isUpdate) {
       $('btnSave').style.display = 'none';
       $('btnUpdate').style.display = 'inline-block';
@@ -1428,323 +733,132 @@ async function saveToDatabase(isUpdate = false) {
     
   } catch(e) {
     console.error('Save error:', e);
-    statusEl.textContent = 'Error saving: ' + e.message;
+    statusEl.textContent = 'Error: ' + e.message;
     statusEl.className = 'error';
-    toast('Error: ' + e.message, 'error');
+    toast('Error saving', 'error');
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   QR CODE HANDLING
-   ═══════════════════════════════════════════════════════════════════ */
-
-async function getOrCreateQRCode(entryId, toolName) {
-  try {
-    const entryRef = db.collection('ictEntries').doc(entryId);
-    const doc = await entryRef.get();
-    
-    if (doc.exists && doc.data().qrCode && doc.data().qrLink) {
-      // Return existing (don't regenerate)
-      return { qrCode: doc.data().qrCode, qrLink: doc.data().qrLink, isNew: false };
-    } else {
-      // Generate new
-      const url = new URL('feedback.html', location.href).href + '?entry=' + encodeURIComponent(entryId);
-      const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url);
-      
-      // Store
-      await entryRef.set({
-        qrCode: qr,
-        qrLink: url,
-        qrGeneratedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        expiresAt: firebase.firestore.Timestamp.fromDate(
-          new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
-        )
-      });
-      
-      return { qrCode: qr, qrLink: url, isNew: true };
-    }
-  } catch(e) {
-    console.error('QR code error:', e);
-    return null;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   FEEDBACK LINKS RENDERING
-   ═══════════════════════════════════════════════════════════════════ */
-
-function renderFeedbackLinks(items, expiresAt) {
-  const box = document.createElement('div');
-  box.className = 'feedback-links-box';
-  
-  const now = new Date();
-  const isExpired = expiresAt && expiresAt < now;
-  const daysLeft = expiresAt ? Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)) : 0;
-  const isExpiringSoon = daysLeft > 0 && daysLeft <= 2;
-  
-  box.innerHTML = `
-    <h3>Student Feedback Links</h3>
-    <p>Share each link (or QR code) with students. Effectiveness is calculated from their responses.</p>
-    ${isExpired ? '<div class="qr-expired-banner">⚠️ These feedback links have EXPIRED (15 days passed). Students can no longer provide feedback.</div>' : ''}
-    <div class="feedback-links-grid">
-      ${items.map((it, i) => {
-        const url = new URL('feedback.html', location.href).href + '?entry=' + encodeURIComponent(it.entryId);
-        const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url);
-        
-        return `
-        <div class="feedback-link-card">
-          <b>${i+1}. ${esc(it.tool)}</b>
-          <img src="${qr}" alt="QR code for ${esc(it.tool)}" width="120" height="120">
-          <div class="fl-url-row">
-            <input type="text" readonly class="fl-url" value="${esc(url)}" onclick="this.select()">
-            <button type="button" class="fl-copy" data-url="${esc(url)}">Copy</button>
-          </div>
-          <div class="qr-card-actions">
-            <button type="button" class="btn-download-qr" data-qr="${esc(qr)}" data-tool="${esc(it.tool)}">⬇ Download QR</button>
-          </div>
-          <div class="qr-countdown ${isExpired ? 'expired' : isExpiringSoon ? 'expiring-soon' : ''}">
-            ${isExpired 
-              ? `❌ Expired on ${expiresAt.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}`
-              : `⏰ Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expiresAt.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})})`}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  
-  const statusEl = $('saveStatus');
-  statusEl.insertAdjacentElement('afterend', box);
-  
-  // Copy handlers
-  box.querySelectorAll('.fl-copy').forEach(btn => {
-    btn.addEventListener('click', () => {
-      navigator.clipboard.writeText(btn.dataset.url).then(() => {
-        const old = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = old, 1500);
-      });
-    });
-  });
-  
-  // Download QR handlers
-  box.querySelectorAll('.btn-download-qr').forEach(btn => {
-    btn.addEventListener('click', () => downloadQRCode(btn.dataset.qr, btn.dataset.tool));
-  });
-}
-
-async function downloadQRCode(qrUrl, toolName) {
-  try {
-    const btn = event.target.closest('.btn-download-qr');
-    const old = btn.textContent;
-    btn.textContent = '⏳ Downloading…';
-    btn.disabled = true;
-    
-    const response = await fetch(qrUrl);
-    if (!response.ok) throw new Error('Failed to fetch QR code');
-    
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    const safeTool = toolName.replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 30);
-    const date = new Date().toISOString().split('T')[0];
-    link.href = url;
-    link.download = `GNC-ICT-${safeTool}-${date}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    btn.textContent = '✓ Downloaded!';
-    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2000);
-    
-  } catch(e) {
-    toast('Error downloading QR: ' + e.message, 'error');
-    btn.textContent = old;
-    btn.disabled = false;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   PDF EXPORT
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* PDF EXPORT */
 async function exportPDF() {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  if (!validateDataAccess(employeeID)) return;
-  
+  const empID = sessionStorage.getItem('loggedInEmployee');
   try {
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF();
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-    const margin = { top: 2, bottom: 2, left: 1.5, right: 1.5 };
+    const margin = {top: 2, bottom: 2, left: 1.5, right: 1.5};
     let currentY = margin.top;
     
-    // College Header (first page only)
     doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
-    doc.text('GURU NANAK COLLEGE (AUTONOMOUS)', pageWidth / 2, currentY + 0.5, { align: 'center' });
+    doc.text('GURU NANAK COLLEGE (AUTONOMOUS)', pageWidth / 2, currentY + 0.5, {align: 'center'});
     
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    doc.text('A Sikh Minority Institution, Unit of Guru Nanak Education Society', pageWidth / 2, currentY + 1, { align: 'center' });
-    doc.text('Affiliated to University of Madras, Approved by AICTE | Accredited at A++ Grade by NAAC', pageWidth / 2, currentY + 1.4, { align: 'center' });
-    doc.text('Guru Nanak Salai, Velachery, Chennai – 600 042', pageWidth / 2, currentY + 1.8, { align: 'center' });
+    doc.text('A Sikh Minority Institution, Unit of Guru Nanak Education Society', pageWidth / 2, currentY + 1, {align: 'center'});
+    doc.text('Affiliated to University of Madras | Accredited at A++ Grade by NAAC', pageWidth / 2, currentY + 1.4, {align: 'center'});
+    doc.text('Guru Nanak Salai, Velachery, Chennai – 600 042', pageWidth / 2, currentY + 1.8, {align: 'center'});
     
-    // Title
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
-    doc.text('FACULTY ICT USAGE VISUAL REPORT', pageWidth / 2, currentY + 2.8, { align: 'center' });
+    doc.text('FACULTY ICT USAGE VISUAL REPORT', pageWidth / 2, currentY + 2.8, {align: 'center'});
     
     currentY += 3.5;
     
-    // Faculty Information
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     const infoX = margin.left;
     doc.text('Faculty Name: ' + ($('facultyName').value || ''), infoX, currentY);
     currentY += 0.5;
-    doc.text('Employee ID: ' + employeeID, infoX, currentY);
+    doc.text('Employee ID: ' + empID, infoX, currentY);
     currentY += 0.5;
     doc.text('Department: ' + ($('departmentSelect').value || ''), infoX, currentY);
     currentY += 0.5;
     doc.text('Shift: ' + ($('shiftDropdown').value || ''), infoX, currentY);
-    currentY += 0.5;
-    doc.text('Report Date: ' + new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'2-digit', year:'numeric'}), infoX, currentY);
-    
     currentY += 1;
     
-    // ICT Tools
-    if (document.querySelectorAll('.ict-entry').length > 0) {
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'bold');
-      doc.text('ICT Tools Used', infoX, currentY);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('ICT Tools Used', infoX, currentY);
+    
+    currentY += 0.6;
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    
+    document.querySelectorAll('.ict-entry').forEach((el, idx) => {
+      if (currentY + 1 > pageHeight - margin.bottom) {
+        doc.addPage();
+        currentY = margin.top;
+      }
       
+      const tool = el.querySelector('.tool-name').value;
+      const eff = el.querySelector('.tool-effectiveness').value || '0';
+      
+      doc.text((idx+1) + '. ' + tool, infoX, currentY);
+      currentY += 0.4;
+      doc.text('Effectiveness: ' + eff + '/10', infoX + 0.5, currentY);
       currentY += 0.6;
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      
-      document.querySelectorAll('.ict-entry').forEach((el, idx) => {
-        if (currentY + 1 > pageHeight - margin.bottom) {
-          doc.addPage();
-          currentY = margin.top;
-        }
-        
-        const toolName = el.querySelector('.tool-name').value || '';
-        const toolPurpose = el.querySelector('.tool-purpose').value || '';
-        const toolEffectiveness = el.querySelector('.tool-effectiveness').value || '0';
-        
-        doc.text((idx + 1) + '. ' + toolName, infoX, currentY);
-        currentY += 0.4;
-        doc.text('Purpose: ' + toolPurpose, infoX + 0.5, currentY);
-        currentY += 0.4;
-        doc.text('Effectiveness: ' + toolEffectiveness + '/10', infoX + 0.5, currentY);
-        currentY += 0.6;
-      });
-    }
+    });
     
-    // Footer
-    const totalPages = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text('Page ' + i + ' of ' + totalPages, pageWidth / 2, pageHeight - margin.bottom + 0.3, { align: 'center' });
-    }
-    
-    const fileName = `GNC-ICT-${employeeID}-${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `GNC-ICT-${empID}-${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
-    toast('PDF downloaded successfully', 'ok');
+    toast('PDF downloaded', 'ok');
     
   } catch(e) {
-    console.error('PDF error:', e);
-    toast('Error generating PDF: ' + e.message, 'error');
+    toast('PDF error: ' + e.message, 'error');
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   EXCEL EXPORT
-   ═══════════════════════════════════════════════════════════════════ */
-
+/* EXCEL EXPORT */
 function exportExcel() {
-  const employeeID = sessionStorage.getItem('loggedInEmployee');
-  if (!validateDataAccess(employeeID)) return;
-  
+  const empID = sessionStorage.getItem('loggedInEmployee');
   try {
     const wb = XLSX.utils.book_new();
-    
-    // Summary sheet
     const summaryData = [
       ['GURU NANAK COLLEGE (AUTONOMOUS)'],
       ['Faculty ICT Usage Report'],
       [],
-      ['Faculty Name:', $('facultyName').value || ''],
-      ['Employee ID:', employeeID],
-      ['Department:', $('departmentSelect').value || ''],
-      ['Shift:', $('shiftDropdown').value || ''],
-      ['Report Date:', new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'2-digit', year:'numeric'})],
+      ['Faculty Name:', $('facultyName').value],
+      ['Employee ID:', empID],
+      ['Department:', $('departmentSelect').value],
+      ['Shift:', $('shiftDropdown').value],
       [],
-      ['ICT Tool', 'Purpose', 'No. of Sessions', 'Effectiveness Score']
+      ['ICT Tool', 'Purpose', 'Sessions', 'Effectiveness']
     ];
     
     document.querySelectorAll('.ict-entry').forEach(el => {
       summaryData.push([
-        el.querySelector('.tool-name').value || '',
-        el.querySelector('.tool-purpose').value || '',
-        el.querySelector('.tool-sessions').value || '',
-        el.querySelector('.tool-effectiveness').value || ''
+        el.querySelector('.tool-name').value,
+        el.querySelector('.tool-purpose').value,
+        el.querySelector('.tool-sessions').value,
+        el.querySelector('.tool-effectiveness').value
       ]);
     });
     
     const ws = XLSX.utils.aoa_to_sheet(summaryData);
-    ws['!cols'] = [{wch: 20}, {wch: 30}, {wch: 15}, {wch: 18}];
-    XLSX.utils.book_append_sheet(wb, ws, 'Report Summary');
+    XLSX.utils.book_append_sheet(wb, ws, 'Report');
     
-    // Reflection sheet
-    const reflectionData = [
-      ['Faculty Reflection'],
-      [],
-      ['Experience with ICT Tools:', $('reflection').value || ''],
-      [],
-      ['Challenges Faced:', $('challenges').value || ''],
-      [],
-      ['Suggestions for Improvement:', $('suggestions').value || '']
-    ];
-    
-    const wsReflection = XLSX.utils.aoa_to_sheet(reflectionData);
-    wsReflection['!cols'] = [{wch: 80}];
-    XLSX.utils.book_append_sheet(wb, wsReflection, 'Faculty Reflection');
-    
-    const fileName = `GNC-ICT-${employeeID}-${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `GNC-ICT-${empID}-${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    toast('Excel downloaded successfully', 'ok');
+    toast('Excel downloaded', 'ok');
     
   } catch(e) {
-    console.error('Excel error:', e);
-    toast('Error exporting Excel: ' + e.message, 'error');
+    toast('Excel error: ' + e.message, 'error');
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   EVENT LISTENERS SETUP
-   ═══════════════════════════════════════════════════════════════════ */
-
-function setupEventListeners(employeeID) {
+/* SETUP */
+function setupEventListeners() {
   $('addToolBtn').addEventListener('click', () => addToolRow());
   $('saveSegment01').addEventListener('click', saveSegment01);
   $('saveSegment02').addEventListener('click', saveSegment02);
   $('saveSegment03').addEventListener('click', saveSegment03);
-  
   $('btnSave').addEventListener('click', () => saveToDatabase(false));
   $('btnUpdate').addEventListener('click', () => saveToDatabase(true));
-  $('btnRefresh').addEventListener('click', () => loadEmployeeData(employeeID));
   $('btnPDF').addEventListener('click', exportPDF);
   $('btnExcel').addEventListener('click', exportExcel);
 }
-
-/* ═══════════════════════════════════════════════════════════════════
-   PAGE INITIALIZATION
-   ═══════════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', initializeAccessControl);
 
