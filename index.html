@@ -571,17 +571,14 @@ function injectCrests(){
 }
 
 /* ---------- Schools & Departments (Guru Nanak College) ----------
-   Reconstructed from gurunanakcollege.edu.in — the six schools are
-   confirmed directly from the site. Department names came from news/
-   events pages rather than one official master list, so double-check
-   these once live and tell me if anything needs a correction. */
+   Taken directly from the official department list on the college site. */
 const SCHOOL_DEPTS = {
-  'School of Languages': ['Tamil','English (Language)','Hindi'],
-  'School of Sciences': ['Mathematics','Allied Mathematics','Physics','Chemistry','Plant Biology & Plant Biotechnology','Advanced Zoology & Biotechnology'],
-  'School of Humanities': ['English Literature (B.A. English)','History','Economics','Political Science','Sociology','Social Work','Psychology'],
-  'School of Commerce': ['Commerce (General)','Commerce (Accounting & Finance)','Corporate Secretaryship','Bank Management'],
-  'School of Management': ['Business Administration (BBA)','BBA Retail Management','Marketing Management','MBA'],
-  'School of Information Technology': ['Information Technology','MCA','Computer Science','Computer Science with Artificial Intelligence','Computer Applications (BCA)','Data Science']
+  'School of Humanities': ['B.A. Defence and Strategic Studies','B.A. Economics','B.A. Sociology','B.A. Political Science','M.A. Defence and Strategic Studies','M.A. Economics','Master of Social Work'],
+  'School of Management': ['B.B.A.','B.B.A Retail Management','B.Com Marketing Management','B.Com Bank Management','M.B.A'],
+  'School of Information Technology': ['B.C.A.','B.Com Computer Applications','B.Sc Computer Science','B.Sc CS-AI','B.Sc Data Analytics','B.Sc Information Technology','B.Sc Visual Communication','M.C.A.','M.Sc CS-AI'],
+  'School of Commerce': ['B.Com Accounting and Finance','B.Com Corporate Secretaryship','B.Com General','B.Com Honours','B.Com Information Systems Management','B.Com Professional Accounting','M.Com'],
+  'School of Sciences': ['B.Sc Advanced Zoology','B.Sc Biotechnology','B.Sc Chemistry','B.Sc Mathematics','B.Sc Physics','B.Sc Plant Biology','M.Sc Chemistry','M.Sc Mathematics','M.Sc Zoology'],
+  'School of Languages': ['B.A. English','English','French','Hindi','Sanskrit','Tamil']
 };
 function schoolOptionsHTML(){
   return Object.keys(SCHOOL_DEPTS).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
@@ -929,7 +926,7 @@ function buildSheetHTML(d){
           <span class="rp-sub">${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} recorded</span></div>
         ${toolsHTML}
       </div>
-      <div class="rp-section">
+      <div class="rp-section" data-force-break="true">
         <div class="rp-h"><span class="bar"></span><h3>Visual Analytics</h3></div>
         <div class="charts-row">
           <div class="chart-box"><div class="chart-inner"><canvas id="cBar"></canvas></div></div>
@@ -1434,9 +1431,8 @@ async function downloadPDF(){
     const sheet = $('#reportSheet');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageW = 210, pageH = 297, marginX = 8, marginTop = 6, gap = 2;
-    // Reduced margins and gap: marginTop 8→6, gap 4→2
-    // This keeps Visual Analytics + Faculty Reflection on same page
+    const pageW = 210, pageH = 297, marginX = 8, marginTop = 10, gap = 2;
+    // marginTop bumped 6→10: a small, consistent top margin on every page.
     const usableW = pageW - marginX * 2;
 
     // Render each top-level block (header, then each report section) as its
@@ -1544,12 +1540,11 @@ async function downloadPDF(){
     }
     if(current.length) pages.push({ blocks: current, slice: false });
 
-    // ---- Pass 3: draw each page. Normal pages get equal top and bottom
-    // margin — never less than marginTop, but stretched evenly to fill
-    // whatever room is left when a page's content doesn't reach the full
-    // usable height. Sliced pages keep the fixed marginTop top/bottom used
-    // for every other page, filling the space in between since a slice is
-    // one continuous image, not separate blocks that can be spaced out.
+    // ---- Pass 3: draw each page. Every normal page starts at the same
+    // fixed top margin (marginTop) — whatever's left over after the
+    // content sits at the bottom, same as any normal document. Sliced
+    // pages (one block too tall for a page) use that same marginTop as
+    // both top and bottom margin on every slice.
     pages.forEach((page, pageIdx) => {
       if(pageIdx > 0){ pdf.addPage(); pageNum++; }
       if(page.slice){
@@ -1565,19 +1560,13 @@ async function downloadPDF(){
           drawnSoFar += usableH;
         }
       } else {
-        const totalH = page.blocks.reduce((s, b, i) => s + b.h + (i > 0 ? gap : 0), 0);
-        // Page 1 (the header + faculty details + snapshot) stays anchored
-        // at the normal top margin, same as always — it reads like the
-        // front of a document, not a title page, so it should never be
-        // vertically centred. From page 2 onward we still centre — equal
-        // top and bottom — but cap how large that margin can get. Without
-        // the cap, a lightly-filled page (say, one ICT tool card on its
-        // own) ends up with a huge, awkward-looking gap top and bottom.
-        const MAX_MARGIN = 20;
-        const margin = pageIdx === 0
-          ? marginTop
-          : Math.min(Math.max(marginTop, (pageH - totalH) / 2), MAX_MARGIN);
-        let y = margin;
+        // A single fixed top margin on every page — page 1 included. No
+        // formula based on how much content is on the page: that's what
+        // caused the previous swings (a lightly-filled page could end up
+        // with a 35mm+ top gap). This is simpler and predictable: a small,
+        // consistent gap at the top everywhere, and whatever's left over
+        // sits at the bottom, same as any normal printed document.
+        let y = marginTop;
         page.blocks.forEach(rb => {
           pdf.addImage(rb.img, 'PNG', marginX, y, usableW, rb.h);
           placeLinks(rb.links, rb.rect, rb.pxToMm, pageNum, y, null, null);
