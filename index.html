@@ -109,6 +109,17 @@ select{cursor:pointer}
 @media(max-width:700px){.fac-form{grid-template-columns:1fr}.span2{grid-column:auto}}
 @media(max-width:640px){.grid-2{grid-template-columns:1fr}}
 
+/* locked "EMPTS" prefix + faculty-entered number, used for Employee ID */
+.emp-id-group{display:flex;align-items:stretch}
+.emp-id-prefix{
+  display:flex;align-items:center;padding:0 .7rem;flex:none;
+  background:#eef2f8;border:1px solid var(--line);border-right:none;
+  border-radius:9px 0 0 9px;font-weight:800;color:var(--navy-700);
+  font-size:.85rem;letter-spacing:.03em;user-select:none;
+}
+.emp-id-group input{border-radius:0 9px 9px 0;flex:1;min-width:0}
+.emp-id-group input:focus{position:relative;z-index:1}
+
 /* segmented mode control */
 .seg{display:flex;background:#eef2f8;border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px}
 .seg-opt{flex:1;position:relative}
@@ -382,8 +393,11 @@ select{cursor:pointer}
         </div>
         <div class="grid-2">
           <div class="field span2">
-            <label class="label" for="loadSearch">Faculty Name</label>
-            <input type="text" id="loadSearch" placeholder="e.g., Dr. G. Preetha — must match exactly what you typed before">
+            <label class="label" for="loadSearch">Employee ID</label>
+            <div class="emp-id-group">
+              <span class="emp-id-prefix">EMPTS</span>
+              <input type="text" id="loadSearch" placeholder="e.g., 2254" inputmode="numeric" maxlength="8">
+            </div>
           </div>
         </div>
         <button class="btn btn-ghost" id="btnLoadSearch" type="button" style="margin-top:10px">🔎 Find My Reports</button>
@@ -402,7 +416,10 @@ select{cursor:pointer}
         </div>
         <div class="fac-form">
           <div class="field"><label class="label" for="fEmpId">Employee ID</label>
-            <input type="text" id="fEmpId" placeholder="e.g., GNC1234"></div>
+            <div class="emp-id-group">
+              <span class="emp-id-prefix">EMPTS</span>
+              <input type="text" id="fEmpId" placeholder="e.g., 2254" inputmode="numeric" maxlength="8">
+            </div></div>
           <div class="field span2"><label class="label" for="fName">Faculty Name</label>
             <input type="text" id="fName" placeholder="e.g., Dr. Preetha Raman"></div>
           <div class="field"><label class="label" for="fShift">Shift</label>
@@ -806,8 +823,9 @@ function updateLiveStats(){
 
 /* ---------- collect data ---------- */
 function readFaculty(){
+  const empNum = $('#fEmpId').value.trim();
   return {
-    empId: $('#fEmpId').value.trim(),
+    empId: empNum ? 'EMPTS' + empNum : '',
     name: $('#fName').value.trim(), shift: $('#fShift').value.trim(), school: $('#fSchool').value.trim(), dept: $('#fDept').value.trim(),
     course: $('#fCourse').value.trim(), code: $('#fCode').value.trim(),
     batch: $('#fBatch').value.trim(), sem: $('#fSem').value,
@@ -1678,6 +1696,16 @@ $('#btnAddBottom').addEventListener('click', addEntry);
 $('#btnGenerate').addEventListener('click', generateReport);
 $('#btnPulseGen').addEventListener('click', generateReport);
 
+// The "EMPTS" prefix is fixed for every faculty member — only the number
+// after it is theirs to type, so strip anything that isn't a digit as
+// they type it (both where it's entered and where it's searched on).
+[$('#fEmpId'), $('#loadSearch')].forEach(el => {
+  el.addEventListener('input', () => {
+    const digitsOnly = el.value.replace(/\D/g, '');
+    if(digitsOnly !== el.value) el.value = digitsOnly;
+  });
+});
+
 /* ---------- per-segment "Save Progress" buttons ----------
    Lets a faculty member save whatever's filled in so far — even before
    any ICT tool entry or reflection note exists — without needing to
@@ -1730,18 +1758,19 @@ function populateBatch(){
 
 /* ---------- load a previously saved report ---------- */
 $('#btnLoadSearch').addEventListener('click', async () => {
-  const name = $('#loadSearch').value.trim();
+  const empNum = $('#loadSearch').value.trim();
   const box = $('#loadResults');
-  if(!name){ toast('Type the faculty name to search for.', 'warn'); return; }
+  if(!empNum){ toast('Type your Employee ID number to search for.', 'warn'); return; }
+  const empId = 'EMPTS' + empNum;
   box.innerHTML = '<p class="nil">Searching…</p>';
   try {
     if(!db) throw new Error('Database not connected.');
     const snap = await db.collection('facultyICTReports')
-      .where('faculty.name', '==', name)
+      .where('faculty.empId', '==', empId)
       .orderBy('submittedAt', 'desc')
       .limit(15).get();
     if(snap.empty){
-      box.innerHTML = '<p class="nil">No saved reports found for that name. Check it matches exactly what you typed before (capitalisation and spacing included).</p>';
+      box.innerHTML = '<p class="nil">No saved reports found for that Employee ID. Double-check the number, or this may be the first report saved with an Employee ID attached.</p>';
       return;
     }
     box.innerHTML = snap.docs.map(docSnap => {
@@ -1752,7 +1781,7 @@ $('#btnLoadSearch').addEventListener('click', async () => {
       const toolCount = (r.entries || []).length;
       return `<button type="button" class="load-result-item" data-id="${esc(docSnap.id)}">
         <b>${esc(f.course || 'Untitled course')}</b>
-        <span>${esc(f.batch || '')} · ${esc(f.sem || '')} · ${toolCount} tool${toolCount === 1 ? '' : 's'} · saved ${dateStr}</span>
+        <span>${esc(f.name || 'Unnamed faculty')} · ${esc(f.batch || '')} · ${esc(f.sem || '')} · ${toolCount} tool${toolCount === 1 ? '' : 's'} · saved ${dateStr}</span>
       </button>`;
     }).join('');
     box.querySelectorAll('.load-result-item').forEach(el => {
@@ -1786,7 +1815,7 @@ async function loadSavedReport(id){
 
     const f = r.faculty || {};
     $('#fName').value = f.name || '';
-    $('#fEmpId').value = f.empId || '';
+    $('#fEmpId').value = (f.empId || '').replace(/^EMPTS/i, '');
     $('#fShift').value = f.shift || '';
     $('#fCourse').value = f.course || '';
     $('#fCode').value = f.code || '';
