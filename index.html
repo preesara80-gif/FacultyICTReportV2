@@ -347,6 +347,31 @@ select{cursor:pointer}
 .toast.warn{border-left-color:#c0533f}
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease, transform .6s cubic-bezier(.2,.7,.3,1)}
 .reveal.in{opacity:1;transform:none}
+
+/* ══════════════ 9b · PIN PROTECTION MODAL ══════════════
+   Gates two things: (1) creating or updating a report under a given
+   Employee ID, and (2) "Find My Reports" search results — so a faculty
+   member can only see or touch reports filed under their own Employee
+   ID. Enforced here in the app only; see the code comments on
+   ensurePinForSave() for what that does and doesn't protect against. */
+.pin-modal-overlay{
+  display:none; position:fixed; inset:0; background:rgba(11,37,69,.55);
+  align-items:center; justify-content:center; z-index:200; padding:20px;
+}
+.pin-modal{
+  background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+  max-width:380px; width:100%; padding:26px 26px 22px; border-top:4px solid var(--gold-500);
+}
+.pin-modal h3{font-family:var(--disp); color:var(--navy-900); font-size:1.15rem; margin-bottom:8px}
+.pin-modal-sub{font-size:.83rem; color:var(--muted); margin-bottom:16px; line-height:1.5}
+.pin-modal input{
+  font:inherit; font-size:1.1rem; letter-spacing:.3em; text-align:center; color:var(--ink);
+  background:#f7f9fc; border:1px solid var(--line); border-radius:9px; padding:.6rem .8rem;
+  width:100%; margin-bottom:10px;
+}
+.pin-modal input:focus{outline:none; border-color:var(--navy-700); background:#fff; box-shadow:0 0 0 3px rgba(29,78,137,.14)}
+.pin-modal-err{font-size:.8rem; color:#c0533f; font-weight:600; min-height:1.1em; margin-bottom:6px}
+.pin-modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:8px}
 .site-foot{text-align:center;padding:26px 20px 34px;font-size:.74rem;color:var(--muted)}
 .site-foot b{color:var(--navy-800)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
@@ -522,6 +547,22 @@ select{cursor:pointer}
 
 <div id="toast" class="toast" role="status"></div>
 
+<!-- PIN protection modal — see ensurePinForSave() / showPinModal() in the
+     script below for how "set" vs "verify" mode is decided. -->
+<div class="pin-modal-overlay" id="pinModalOverlay">
+  <div class="pin-modal">
+    <h3 id="pinModalTitle">Enter your PIN</h3>
+    <p class="pin-modal-sub" id="pinModalSub"></p>
+    <input type="password" id="pinModalInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" autocomplete="off">
+    <input type="password" id="pinModalConfirm" inputmode="numeric" maxlength="4" placeholder="Re-enter PIN" autocomplete="off" style="display:none">
+    <p class="pin-modal-err" id="pinModalErr"></p>
+    <div class="pin-modal-actions">
+      <button type="button" class="btn btn-ghost" id="pinModalCancel">Cancel</button>
+      <button type="button" class="btn btn-save" id="pinModalOk">Continue</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════ LIBRARIES ═══════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -653,6 +694,10 @@ let barChart = null, pieChart = null, reportReady = false;
    without re-collecting the form. */
 let currentReportRef = null;
 let currentReportData = null;
+// Employee ID whose PIN has already been confirmed correct once this page
+// load — so someone doesn't get re-prompted on every single save/search
+// for the same ID within one sitting. Cleared on page reload only.
+let pinVerifiedEmpId = null;
 
 /* ---------- dynamic entry markup ---------- */
 function uploadMarkup(id, kind, ico, label, hint, accept){
@@ -1200,6 +1245,108 @@ async function compressEntryFiles(entries, onProgress){
   return { compressed, failed };
 }
 
+/* ---------- PIN protection ----------
+   Restricts each Employee ID's saved reports to whoever knows that ID's
+   PIN. The PIN is set the first time anyone saves a report under a given
+   Employee ID (registered in a separate `facultyPins` collection, one
+   doc per Employee ID) and must be re-entered — once per Employee ID per
+   browser session — to create/update another report under that ID or to
+   use "Find My Reports". Only the SHA-256 hash of the PIN is stored,
+   never the PIN itself.
+
+   Honest limits of this approach (this is app-level gating, not a
+   database-enforced rule, since there's no real sign-in here): anyone
+   who inspects network traffic with the page's own public Firebase
+   config could still read Firestore directly, bypassing this check
+   entirely. What this DOES stop is normal use of the website itself —
+   nobody browsing the site can view or edit another faculty member's
+   reports without knowing their PIN. It also can't stop someone from
+   registering a PIN under an Employee ID before its real owner does;
+   if that ever happens, an admin would need to delete the stray
+   `facultyPins` doc in Firestore so the rightful owner can register
+   their own PIN. */
+async function hashPin(pin){
+  const enc = new TextEncoder().encode(pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// mode: 'set' (first time this Employee ID is ever used) or 'verify'
+// (an existing PIN must be re-entered). Resolves { ok:true, pin } or
+// { ok:false } if cancelled.
+function showPinModal({ mode, empId }){
+  return new Promise(resolve => {
+    const overlay = $('#pinModalOverlay');
+    const title = $('#pinModalTitle');
+    const sub = $('#pinModalSub');
+    const input = $('#pinModalInput');
+    const confirmInput = $('#pinModalConfirm');
+    const err = $('#pinModalErr');
+    const ok = $('#pinModalOk');
+    const cancel = $('#pinModalCancel');
+
+    title.textContent = mode === 'set' ? `Create a PIN for ${empId}` : `Enter your PIN for ${empId}`;
+    sub.textContent = mode === 'set'
+      ? 'No PIN has been set for this Employee ID yet — choose a 4-digit PIN now to protect these reports going forward. You\'ll need to re-enter this PIN to view or add to them later, so keep it somewhere safe.'
+      : 'Enter the PIN that was set the first time a report was saved under this Employee ID.';
+    input.value = ''; confirmInput.value = ''; err.textContent = '';
+    confirmInput.style.display = mode === 'set' ? 'block' : 'none';
+    overlay.style.display = 'flex';
+    setTimeout(() => input.focus(), 30);
+
+    function cleanup(result){
+      overlay.style.display = 'none';
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+      confirmInput.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onOk(){
+      const pin = input.value.trim();
+      if(!/^\d{4}$/.test(pin)){ err.textContent = 'PIN must be exactly 4 digits.'; return; }
+      if(mode === 'set' && pin !== confirmInput.value.trim()){
+        err.textContent = 'PINs don\'t match — try again.'; return;
+      }
+      cleanup({ ok: true, pin });
+    }
+    function onCancel(){ cleanup({ ok: false }); }
+    function onKey(e){ if(e.key === 'Enter') onOk(); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+    confirmInput.addEventListener('keydown', onKey);
+  });
+}
+
+// Called right before writing a report. Returns true if the save should
+// proceed, false if it should be quietly aborted (cancelled or wrong PIN).
+async function ensurePinForSave(empId){
+  if(!empId) return true; // no Employee ID entered yet — nothing to gate
+  if(pinVerifiedEmpId === empId) return true; // already confirmed this session
+  const pinRef = db.collection('facultyPins').doc(empId);
+  const pinSnap = await pinRef.get();
+
+  if(!pinSnap.exists){
+    const res = await showPinModal({ mode: 'set', empId });
+    if(!res.ok) return false;
+    const pinHash = await hashPin(res.pin);
+    await pinRef.set({ pinHash, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    pinVerifiedEmpId = empId;
+    return true;
+  }
+
+  const res = await showPinModal({ mode: 'verify', empId });
+  if(!res.ok) return false;
+  const enteredHash = await hashPin(res.pin);
+  if(enteredHash !== pinSnap.data().pinHash){
+    toast('Incorrect PIN.', 'warn');
+    return false;
+  }
+  pinVerifiedEmpId = empId;
+  return true;
+}
+
 /* ---------- save to database ----------
    opts.statusEl / opts.btn let a caller point this at its own status line
    and button (used by the per-segment "Save Progress" buttons) instead of
@@ -1220,6 +1367,15 @@ async function saveToDatabase(data, opts = {}){
     }
     if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.firestore.FieldValue) {
       throw new Error('Firebase library did not fully load — check your internet connection and reload the page.');
+    }
+
+    // Only the Employee ID's own PIN-holder may create or update a report
+    // filed under it — see the ensurePinForSave() comment above for what
+    // this does and doesn't protect against.
+    const pinOk = await ensurePinForSave(data.fac && data.fac.empId);
+    if(!pinOk){
+      if(statusEl){ statusEl.textContent = 'Save cancelled — PIN not confirmed.'; statusEl.classList.add('warn'); }
+      return;
     }
 
     // If a report is already tracked for this session (freshly saved, or
@@ -1765,6 +1921,45 @@ $('#btnLoadSearch').addEventListener('click', async () => {
   box.innerHTML = '<p class="nil">Searching…</p>';
   try {
     if(!db) throw new Error('Database not connected.');
+
+    // Check first (cheaply — at most one document) whether any reports
+    // exist under this Employee ID at all. This has to come before any
+    // PIN decision: reports saved before the PIN feature existed have no
+    // facultyPins entry yet, and checking the PIN first would wrongly
+    // report those as "not found" instead of offering to register a PIN
+    // for them now.
+    const existsSnap = await db.collection('facultyICTReports')
+      .where('faculty.empId', '==', empId).limit(1).get();
+    if(existsSnap.empty){
+      box.innerHTML = '<p class="nil">No saved reports found for that Employee ID.</p>';
+      return;
+    }
+
+    if(pinVerifiedEmpId !== empId){
+      const pinRef = db.collection('facultyPins').doc(empId);
+      const pinSnap = await pinRef.get();
+      if(!pinSnap.exists){
+        // Reports exist under this Employee ID but no PIN has been
+        // registered for it yet — most likely because they were saved
+        // before this feature existed. Treat this as the rightful
+        // owner's first chance to claim the ID with a new PIN, same as
+        // registering one during a fresh save.
+        const res = await showPinModal({ mode: 'set', empId });
+        if(!res.ok){ box.innerHTML = ''; return; }
+        const pinHash = await hashPin(res.pin);
+        await pinRef.set({ pinHash, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      } else {
+        const res = await showPinModal({ mode: 'verify', empId });
+        if(!res.ok){ box.innerHTML = ''; return; }
+        const enteredHash = await hashPin(res.pin);
+        if(enteredHash !== pinSnap.data().pinHash){
+          box.innerHTML = '<p class="nil">Incorrect PIN.</p>';
+          return;
+        }
+      }
+      pinVerifiedEmpId = empId;
+    }
+
     const snap = await db.collection('facultyICTReports')
       .where('faculty.empId', '==', empId)
       .orderBy('submittedAt', 'desc')
