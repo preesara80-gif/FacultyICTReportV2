@@ -1454,11 +1454,6 @@ async function downloadPDF(){
         blocks.push(sec);
       }
     });
-    let y = marginTop;
-    // jsPDF's addPage() always makes the new page "current" — we track that
-    // page number ourselves in lockstep with every addPage() call below, so
-    // pdf.link() can target the exact page a proof link ends up on, even
-    // when a tall section gets sliced across several pages.
     let pageNum = 1;
 
     // A screenshot is just pixels — html2canvas has no idea a <a> tag was
@@ -1486,60 +1481,82 @@ async function downloadPDF(){
       });
     }
 
+    // ---- Pass 1: screenshot every block first, without drawing anything.
+    // We need each block's rendered height up front so that, once we know
+    // exactly which blocks land on a given page, we can centre that page's
+    // content — equal top and bottom margin — rather than always starting
+    // at a fixed top margin and leaving whatever's left as dead space at
+    // the bottom. This is why the old single-pass approach could never do
+    // this: it drew each block the moment it decided the page, before it
+    // knew what (if anything) would follow on that same page.
+    const rendered = [];
     for(const el of blocks){
-      // Sections marked data-force-break always start on a fresh page,
-      // even if the current page still has room left.
-      if(el.dataset && el.dataset.forceBreak === 'true' && y > marginTop){
-        pdf.addPage(); pageNum++; y = marginTop;
-      }
-
       const rect = el.getBoundingClientRect();
       const links = [...el.querySelectorAll('.proof-link, .doc-row-link')].map(a => ({ a, r: a.getBoundingClientRect() }));
       const pxToMm = usableW / rect.width;
-
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
       const h = canvas.height * usableW / canvas.width;
       const img = canvas.toDataURL('image/png');
+      rendered.push({ img, h, rect, links, pxToMm, forceBreak: el.dataset && el.dataset.forceBreak === 'true' });
+    }
 
-      if(h > pageH - marginTop * 2){
-        // Block itself is taller than one full page (e.g. many ICT tool
-        // entries with photos). No way to keep it whole — slice it across
-        // as many pages as it needs. Each slice reserves the SAME top and
-        // bottom margin (marginTop) as every other page in the report —
-        // previously this branch drew edge-to-edge with zero margin, which
-        // is why spacing looked uneven from page to page.
-        if(y > marginTop){ pdf.addPage(); pageNum++; }
-        const usableH = pageH - marginTop * 2;
-        let drawnSoFar = 0;
-        pdf.addImage(img, 'PNG', marginX, marginTop, usableW, h);
-        placeLinks(links, rect, pxToMm, pageNum, marginTop, marginTop, marginTop + usableH);
-        drawnSoFar = usableH;
-        while(drawnSoFar < h){
-          pdf.addPage(); pageNum++;
-          pdf.addImage(img, 'PNG', marginX, marginTop - drawnSoFar, usableW, h);
-          placeLinks(links, rect, pxToMm, pageNum, marginTop - drawnSoFar, marginTop, marginTop + usableH);
-          drawnSoFar += usableH;
-        }
-        // A sliced block always ends its tail on whatever page it lands
-        // on — the next block MUST start on a fresh page, or it gets drawn
-        // directly on top of that tail end. (A prior edit removed this and
-        // called it an optimization; it wasn't — it silently overwrote
-        // content, which is the exact "third entry disappeared" bug this
-        // restores the fix for.)
-        pdf.addPage(); pageNum++;
-        y = marginTop;
+    // ---- Pass 2: group the rendered blocks into pages using the same
+    // fit-or-new-page rule as before (each page holds up to
+    // pageH - marginTop*2 worth of content). A block taller than that on
+    // its own becomes a "slice" page-group, sliced across as many physical
+    // pages as it needs — same as before, margin-to-margin, since it's one
+    // continuous image and can't be centred without breaking it apart.
+    const usableH = pageH - marginTop * 2;
+    const pages = [];
+    let current = [];
+    let curH = 0;
+    for(const rb of rendered){
+      if(rb.forceBreak && current.length){ pages.push({ blocks: current, slice: false }); current = []; curH = 0; }
+      if(rb.h > usableH){
+        if(current.length){ pages.push({ blocks: current, slice: false }); current = []; curH = 0; }
+        pages.push({ blocks: [rb], slice: true });
         continue;
       }
-
-      // Keep sections together - if next section fits on same page, keep it
-      // If not enough room, move to new page. This reduces blank space.
-      if(y + h > pageH - marginTop){ 
-        pdf.addPage(); pageNum++; y = marginTop; 
+      const next = curH === 0 ? rb.h : curH + gap + rb.h;
+      if(curH > 0 && next > usableH){
+        pages.push({ blocks: current, slice: false }); current = []; curH = 0;
       }
-      pdf.addImage(img, 'PNG', marginX, y, usableW, h);
-      placeLinks(links, rect, pxToMm, pageNum, y, null, null);
-      y += h + gap;
+      current.push(rb);
+      curH = curH === 0 ? rb.h : curH + gap + rb.h;
     }
+    if(current.length) pages.push({ blocks: current, slice: false });
+
+    // ---- Pass 3: draw each page. Normal pages get equal top and bottom
+    // margin — never less than marginTop, but stretched evenly to fill
+    // whatever room is left when a page's content doesn't reach the full
+    // usable height. Sliced pages keep the fixed marginTop top/bottom used
+    // for every other page, filling the space in between since a slice is
+    // one continuous image, not separate blocks that can be spaced out.
+    pages.forEach((page, pageIdx) => {
+      if(pageIdx > 0){ pdf.addPage(); pageNum++; }
+      if(page.slice){
+        const rb = page.blocks[0];
+        let drawnSoFar = 0;
+        pdf.addImage(rb.img, 'PNG', marginX, marginTop, usableW, rb.h);
+        placeLinks(rb.links, rb.rect, rb.pxToMm, pageNum, marginTop, marginTop, marginTop + usableH);
+        drawnSoFar = usableH;
+        while(drawnSoFar < rb.h){
+          pdf.addPage(); pageNum++;
+          pdf.addImage(rb.img, 'PNG', marginX, marginTop - drawnSoFar, usableW, rb.h);
+          placeLinks(rb.links, rb.rect, rb.pxToMm, pageNum, marginTop - drawnSoFar, marginTop, marginTop + usableH);
+          drawnSoFar += usableH;
+        }
+      } else {
+        const totalH = page.blocks.reduce((s, b, i) => s + b.h + (i > 0 ? gap : 0), 0);
+        const margin = Math.max(marginTop, (pageH - totalH) / 2);
+        let y = margin;
+        page.blocks.forEach(rb => {
+          pdf.addImage(rb.img, 'PNG', marginX, y, usableW, rb.h);
+          placeLinks(rb.links, rb.rect, rb.pxToMm, pageNum, y, null, null);
+          y += rb.h + gap;
+        });
+      }
+    });
 
     // Placing links may have switched jsPDF's "current" page — make sure
     // we end on the actual last page before saving.
