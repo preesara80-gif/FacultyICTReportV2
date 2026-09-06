@@ -401,6 +401,8 @@ select{cursor:pointer}
           </div>
         </div>
         <div class="fac-form">
+          <div class="field"><label class="label" for="fEmpId">Employee ID</label>
+            <input type="text" id="fEmpId" placeholder="e.g., GNC1234"></div>
           <div class="field span2"><label class="label" for="fName">Faculty Name</label>
             <input type="text" id="fName" placeholder="e.g., Dr. Preetha Raman"></div>
           <div class="field"><label class="label" for="fShift">Shift</label>
@@ -805,6 +807,7 @@ function updateLiveStats(){
 /* ---------- collect data ---------- */
 function readFaculty(){
   return {
+    empId: $('#fEmpId').value.trim(),
     name: $('#fName').value.trim(), shift: $('#fShift').value.trim(), school: $('#fSchool').value.trim(), dept: $('#fDept').value.trim(),
     course: $('#fCourse').value.trim(), code: $('#fCode').value.trim(),
     batch: $('#fBatch').value.trim(), sem: $('#fSem').value,
@@ -846,7 +849,7 @@ function buildSheetHTML(d){
 
   const cell = (l, v) => `<div class="fac-cell"><span>${l}</span><b>${v ? esc(v) : '<span class="nil">Not provided</span>'}</b></div>`;
   const cells = [
-    cell('Faculty Name', fac.name), cell('Shift', fac.shift), cell('School', fac.school),
+    cell('Employee ID', fac.empId), cell('Faculty Name', fac.name), cell('Shift', fac.shift), cell('School', fac.school),
     cell('Department', fac.dept), cell('Course Title', fac.course), cell('Course Code', fac.code),
     cell('Batch', fac.batch), cell('Semester', fac.sem), cell('Year', fac.year),
     cell('Academic Year', fac.ay)
@@ -1783,6 +1786,7 @@ async function loadSavedReport(id){
 
     const f = r.faculty || {};
     $('#fName').value = f.name || '';
+    $('#fEmpId').value = f.empId || '';
     $('#fShift').value = f.shift || '';
     $('#fCourse').value = f.course || '';
     $('#fCode').value = f.code || '';
