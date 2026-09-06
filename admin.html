@@ -42,7 +42,7 @@ body{font-family:var(--body);color:var(--ink);background:#eef2f7;min-height:100v
 
 /* dashboard */
 #dash{display:none}
-.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
 .stat-tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
 .stat-tile b{font-family:var(--disp);font-size:1.6rem;color:var(--navy-800);display:block}
 .stat-tile span{font-size:.62rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:800}
@@ -57,7 +57,8 @@ body{font-family:var(--body);color:var(--ink);background:#eef2f7;min-height:100v
 .btn-clear{background:#fff;border:1px solid var(--line)!important;color:var(--navy-800)}
 .btn-refresh{background:var(--navy-800);color:#fff}
 
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse;background:#fff;min-width:920px}
+.table-wrap{border:1px solid var(--line);border-radius:12px;overflow-x:auto}
 thead th{background:#f4f7fb;text-align:left;padding:10px 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--navy-700);border-bottom:1px solid var(--line)}
 tbody td{padding:10px 12px;font-size:.83rem;border-bottom:1px solid #eef2f7;vertical-align:top}
 tbody tr:hover{background:#f7faff;cursor:pointer}
@@ -106,6 +107,8 @@ tbody tr:hover{background:#f7faff;cursor:pointer}
   <div id="dash">
     <div class="stat-row">
       <div class="stat-tile"><b id="sTotal">0</b><span>Total Submissions</span></div>
+      <div class="stat-tile"><b id="sFaculty">0</b><span>No. of Faculty Submitted</span></div>
+      <div class="stat-tile"><b id="sSubjects">0</b><span>No. of Subjects Submitted</span></div>
       <div class="stat-tile"><b id="sAvg">—</b><span>Avg. Effectiveness</span></div>
       <div class="stat-tile"><b id="sSync">0</b><span>Synchronous Entries</span></div>
       <div class="stat-tile"><b id="sAsync">0</b><span>Asynchronous Entries</span></div>
@@ -114,23 +117,26 @@ tbody tr:hover{background:#f7faff;cursor:pointer}
     <div class="toolbar">
       <div class="field"><label>School</label><select id="fSchool"><option value="">All</option></select></div>
       <div class="field"><label>Academic Year</label><select id="fAY"><option value="">All</option></select></div>
-      <div class="field grow"><label>Search faculty name</label><input type="text" id="fSearch" placeholder="Type a name…"></div>
+      <div class="field grow"><label>Employee ID</label><input type="text" id="fSearch" placeholder="Type an employee ID…"></div>
       <button class="btn-clear" id="btnClear" type="button">Clear filters</button>
       <button class="btn-refresh" id="btnRefresh" type="button">↻ Refresh</button>
-      <button class="btn-export" id="btnExport" type="button">⬇ Export CSV</button>
+      <button class="btn-export" id="btnExportXLS" type="button">⬇ Export as XLS</button>
+      <button class="btn-export" id="btnExportPDF" type="button">⬇ Export as PDF</button>
     </div>
 
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>Submitted</th><th>Faculty</th><th>Shift</th><th>School</th><th>Department</th>
+          <th>Submitted</th><th>Employee ID</th><th>Faculty</th><th>Shift</th><th>School</th><th>Department</th>
           <th>Course</th><th>Batch</th><th>Tools</th><th>Avg. Eff.</th>
         </tr>
       </thead>
       <tbody id="rows">
-        <tr class="empty-row"><td colspan="9">Loading…</td></tr>
+        <tr class="empty-row"><td colspan="10">Loading…</td></tr>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -138,6 +144,10 @@ tbody tr:hover{background:#f7faff;cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- ═══════════════ EXPORT LIBRARIES (XLS + PDF) ═══════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
   // Same project as index.html. If you ever rotate keys, update both files.
   const firebaseConfig = {
@@ -161,6 +171,14 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt
 
 let allRecords = [];
 let feedbackByEntry = {}; // entryId -> array of { clarity, engagement, usefulness }
+
+// Kept in sync with the SCHOOL_DEPTS list in index.html — shown in the
+// School filter regardless of whether any report has come in for that
+// school yet, rather than only listing schools already seen in the data.
+const ALL_SCHOOLS = [
+  'School of Humanities', 'School of Management', 'School of Information Technology',
+  'School of Commerce', 'School of Sciences', 'School of Languages'
+];
 
 /* ---------- auth ---------- */
 $('#btnLogin').addEventListener('click', async () => {
@@ -193,7 +211,7 @@ auth.onAuthStateChanged(user => {
 
 /* ---------- data loading ---------- */
 async function loadRecords(){
-  $('#rows').innerHTML = '<tr class="empty-row"><td colspan="9">Loading…</td></tr>';
+  $('#rows').innerHTML = '<tr class="empty-row"><td colspan="10">Loading…</td></tr>';
   try {
     const [reportSnap, feedbackSnap] = await Promise.all([
       db.collection('facultyICTReports').orderBy('submittedAt', 'desc').get(),
@@ -211,7 +229,7 @@ async function loadRecords(){
     populateFilterOptions();
     render();
   } catch(e){
-    $('#rows').innerHTML = `<tr class="empty-row"><td colspan="9">Could not load records: ${esc(e.message)}</td></tr>`;
+    $('#rows').innerHTML = `<tr class="empty-row"><td colspan="10">Could not load records: ${esc(e.message)}</td></tr>`;
   }
 }
 $('#btnRefresh').addEventListener('click', loadRecords);
@@ -229,7 +247,9 @@ function computeEffectiveness(entryId){
 }
 
 function populateFilterOptions(){
-  const schools = [...new Set(allRecords.map(r => r.faculty?.school).filter(Boolean))].sort();
+  const extraSchools = [...new Set(allRecords.map(r => r.faculty?.school).filter(Boolean))]
+    .filter(s => !ALL_SCHOOLS.includes(s)).sort();
+  const schools = [...ALL_SCHOOLS, ...extraSchools];
   const ays = [...new Set(allRecords.map(r => r.faculty?.ay).filter(Boolean))].sort();
   $('#fSchool').innerHTML = '<option value="">All</option>' + schools.map(s => `<option>${esc(s)}</option>`).join('');
   $('#fAY').innerHTML = '<option value="">All</option>' + ays.map(a => `<option>${esc(a)}</option>`).join('');
@@ -241,7 +261,7 @@ function filtered(){
   return allRecords.filter(r => {
     if(school && r.faculty?.school !== school) return false;
     if(ay && r.faculty?.ay !== ay) return false;
-    if(q && !(r.faculty?.name || '').toLowerCase().includes(q)) return false;
+    if(q && !(r.faculty?.empId || '').toLowerCase().includes(q)) return false;
     return true;
   });
 }
@@ -268,13 +288,24 @@ function render(){
     if (calc){ totalEff += calc.score10; effCount++; }
     if(e.mode === 'Synchronous') sync++; else if(e.mode === 'Asynchronous') async_++;
   }));
+  // Faculty are deduplicated by Employee ID (falling back to name for older
+  // records saved before the Employee ID field existed) so one faculty
+  // member submitting several reports is still counted once. Subjects are
+  // deduplicated by course title + course code together, since two
+  // different courses can share a title but not a code.
+  const facultyKey = r => (r.faculty?.empId || r.faculty?.name || '').trim().toLowerCase();
+  const subjectKey = r => `${(r.faculty?.course || '').trim().toLowerCase()}|${(r.faculty?.code || '').trim().toLowerCase()}`;
+  const facultyCount = new Set(list.map(facultyKey).filter(Boolean)).size;
+  const subjectCount = new Set(list.map(subjectKey).filter(k => k !== '|')).size;
   $('#sTotal').textContent = list.length;
+  $('#sFaculty').textContent = facultyCount;
+  $('#sSubjects').textContent = subjectCount;
   $('#sAvg').textContent = effCount ? (totalEff / effCount).toFixed(1) : '—';
   $('#sSync').textContent = sync;
   $('#sAsync').textContent = async_;
 
   if(!list.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No records match these filters.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No records match these filters.</td></tr>';
     return;
   }
 
@@ -287,6 +318,7 @@ function render(){
     return `
     <tr data-i="${i}">
       <td>${fmtDate(r.submittedAt)}</td>
+      <td>${esc(f.empId || '—')}</td>
       <td>${esc(f.name || '—')}</td>
       <td><span class="pill">${esc(f.shift || '—')}</span></td>
       <td>${esc(f.school || '—')}</td>
@@ -296,7 +328,7 @@ function render(){
       <td>${esc(toolNames)}</td>
       <td>${avgEff}</td>
     </tr>
-    <tr class="detail" id="detail-${i}"><td colspan="9"><div class="detail-inner" id="detail-inner-${i}"></div></td></tr>`;
+    <tr class="detail" id="detail-${i}"><td colspan="10"><div class="detail-inner" id="detail-inner-${i}"></div></td></tr>`;
   }).join('');
 
   $$('#rows tr[data-i]').forEach(tr => {
@@ -372,14 +404,11 @@ async function buildDetail(r){
     <h4>Future Improvements</h4><p>${esc(refl.improvements) || '—'}</p>`;
 }
 
-/* ---------- CSV export ---------- */
-function csvCell(v){
-  const s = String(v ?? '');
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
-$('#btnExport').addEventListener('click', () => {
+/* ---------- export (XLS + PDF) ---------- */
+// Shared by both export formats so the columns always stay in sync.
+function buildExportRows(){
   const list = filtered();
-  const header = ['Submitted','Faculty Name','Shift','School','Department','Course Title','Course Code','Batch','Semester','Year','Academic Year','Tools Used','Avg Effectiveness','Feedback Responses','Synchronous Count','Asynchronous Count','Strengths','Challenges','Future Improvements'];
+  const header = ['Submitted','Employee ID','Faculty Name','Shift','School','Department','Course Title','Course Code','Batch','Semester','Year','Academic Year','Tools Used','Avg Effectiveness','Feedback Responses','Synchronous Count','Asynchronous Count','Strengths','Challenges','Future Improvements'];
   const rows = list.map(r => {
     const f = r.faculty || {}, entries = r.entries || [], refl = r.reflection || {};
     const sync = entries.filter(e => e.mode === 'Synchronous').length;
@@ -391,17 +420,48 @@ $('#btnExport').addEventListener('click', () => {
       const calc = computeEffectiveness(e.entryId);
       return `${e.tool} (${e.mode}, ${calc ? calc.score10.toFixed(1) + '/10 from ' + calc.count + ' resp.' : 'awaiting feedback'})`;
     }).join('; ');
-    return [fmtDate(r.submittedAt), f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, totalResponses, sync, async_, refl.strengths, refl.challenges, refl.improvements];
+    return [fmtDate(r.submittedAt), f.empId, f.name, f.shift, f.school, f.dept, f.course, f.code, f.batch, f.sem, f.year, f.ay, toolsStr, avg, totalResponses, sync, async_, refl.strengths, refl.challenges, refl.improvements];
   });
-  const csv = [header, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
-  // Prepend a UTF-8 BOM so Excel correctly reads special characters
-  // (like the – dash in "2025 – 28") instead of showing â€" garbage.
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `GNC_ICT_Reports_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return { header, rows };
+}
+
+$('#btnExportXLS').addEventListener('click', () => {
+  if(!window.XLSX){ alert('The Excel export library could not load — check your internet connection and try again.'); return; }
+  const { header, rows } = buildExportRows();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows.map(row => row.map(v => v ?? ''))]);
+  // A rough per-column width so long text (tools, reflections) doesn't get
+  // squashed into an unreadable sliver by Excel's default column sizing.
+  ws['!cols'] = header.map((h, i) => ({
+    wch: Math.min(50, Math.max(h.length, ...rows.map(r => String(r[i] ?? '').length)) + 2)
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ICT Reports');
+  XLSX.writeFile(wb, `GNC_ICT_Reports_${new Date().toISOString().slice(0,10)}.xlsx`);
+});
+
+$('#btnExportPDF').addEventListener('click', () => {
+  if(!window.jspdf || !window.jspdf.jsPDF){ alert('The PDF export library could not load — check your internet connection and try again.'); return; }
+  const { header, rows } = buildExportRows();
+  const { jsPDF } = window.jspdf;
+  // Landscape, and only the columns that matter for a quick printed
+  // overview — the long free-text fields (strengths/challenges/etc.) stay
+  // in the XLS export, where there's room to actually read them.
+  const printableCols = ['Submitted','Employee ID','Faculty Name','Shift','School','Department','Course Title','Batch','Tools Used','Avg Effectiveness'];
+  const colIdx = printableCols.map(c => header.indexOf(c));
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  doc.setFontSize(13);
+  doc.text('Guru Nanak College (Autonomous) — Faculty ICT Usage Reports', 14, 12);
+  doc.setFontSize(9);
+  doc.text(`Generated ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' })}`, 14, 18);
+  doc.autoTable({
+    startY: 24,
+    head: [printableCols],
+    body: rows.map(row => colIdx.map(i => row[i] ?? '')),
+    styles: { fontSize: 7.5, cellPadding: 2 },
+    headStyles: { fillColor: [19, 49, 92], textColor: 255 },
+    alternateRowStyles: { fillColor: [244, 247, 251] }
+  });
+  doc.save(`GNC_ICT_Reports_${new Date().toISOString().slice(0,10)}.pdf`);
 });
 </script>
 </body>
