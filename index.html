@@ -1300,11 +1300,15 @@ async function saveToDatabase(data, opts = {}){
       entryRefs[i].update({ expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt) });
     });
 
-    if(!skipFeedbackLinks && data.entries.length){
-      renderFeedbackLinks(
-        data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })),
-        expiresAt
-      );
+    if(!skipFeedbackLinks){
+      if(data.entries.length){
+        renderFeedbackLinks(
+          data.entries.map(e => ({ tool: e.tool, entryId: e.entryId })),
+          expiresAt
+        );
+      } else {
+        document.querySelectorAll('.feedback-links-box').forEach(el => el.remove());
+      }
     }
     if(btn && btn.id === 'btnSave') btn.textContent = '💾 Update Saved Report';
   } catch (e) {
@@ -1360,6 +1364,13 @@ function renderFeedbackLinks(items, expiresAt){
       }).join('')}
     </div>`;
   
+  // A save can happen many times on the same report (Update Saved Report,
+  // Refresh with Feedback, adding another ICT tool...). Each time, this
+  // rebuilds the box fresh from the current entries — which is correct,
+  // since a newly added tool needs its own QR/link to show up. What's NOT
+  // correct is leaving the PREVIOUS box sitting in the page too — that's
+  // what was causing the links to visibly double up on repeat saves.
+  document.querySelectorAll('.feedback-links-box').forEach(el => el.remove());
   const statusEl = $('#saveStatus');
   statusEl.insertAdjacentElement('afterend', box);
   
@@ -1449,7 +1460,14 @@ async function downloadPDF(){
           if(sec.dataset.forceBreak) header.dataset.forceBreak = sec.dataset.forceBreak;
           blocks.push(header);
         }
-        cards.forEach(c => blocks.push(c));
+        // Each ICT tool entry gets its own dedicated page. The first card
+        // still shares a page with the section header (that's just the
+        // section's intro line, not a tool itself) — every card after
+        // that force-breaks onto a fresh page of its own.
+        cards.forEach((c, idx) => {
+          if(idx > 0) c.dataset.forceBreak = 'true';
+          blocks.push(c);
+        });
       } else {
         blocks.push(sec);
       }
@@ -1548,7 +1566,17 @@ async function downloadPDF(){
         }
       } else {
         const totalH = page.blocks.reduce((s, b, i) => s + b.h + (i > 0 ? gap : 0), 0);
-        const margin = Math.max(marginTop, (pageH - totalH) / 2);
+        // Page 1 (the header + faculty details + snapshot) stays anchored
+        // at the normal top margin, same as always — it reads like the
+        // front of a document, not a title page, so it should never be
+        // vertically centred. From page 2 onward we still centre — equal
+        // top and bottom — but cap how large that margin can get. Without
+        // the cap, a lightly-filled page (say, one ICT tool card on its
+        // own) ends up with a huge, awkward-looking gap top and bottom.
+        const MAX_MARGIN = 20;
+        const margin = pageIdx === 0
+          ? marginTop
+          : Math.min(Math.max(marginTop, (pageH - totalH) / 2), MAX_MARGIN);
         let y = margin;
         page.blocks.forEach(rb => {
           pdf.addImage(rb.img, 'PNG', marginX, y, usableW, rb.h);
