@@ -574,10 +574,10 @@ function injectCrests(){
    Taken directly from the official department list on the college site. */
 const SCHOOL_DEPTS = {
   'School of Humanities': ['B.A. Defence and Strategic Studies','B.A. Economics','B.A. Sociology','B.A. Political Science','M.A. Defence and Strategic Studies','M.A. Economics','Master of Social Work'],
-  'School of Management': ['B.B.A.','B.B.A Retail Management','B.Com Marketing Management','B.Com Bank Management','M.B.A'],
-  'School of Information Technology': ['B.C.A.','B.Com Computer Applications','B.Sc Computer Science','B.Sc CS-AI','B.Sc Data Analytics','B.Sc Information Technology','B.Sc Visual Communication','M.C.A.','M.Sc CS-AI'],
-  'School of Commerce': ['B.Com Accounting and Finance','B.Com Corporate Secretaryship','B.Com General','B.Com Honours','B.Com Information Systems Management','B.Com Professional Accounting','M.Com'],
-  'School of Sciences': ['B.Sc Advanced Zoology','B.Sc Biotechnology','B.Sc Chemistry','B.Sc Mathematics','B.Sc Physics','B.Sc Plant Biology','M.Sc Chemistry','M.Sc Mathematics','M.Sc Zoology'],
+  'School of Management': ['B.B.A.','B.B.A. Retail Management','B.Com Marketing Management','B.Com. Bank Management','M.B.A'],
+  'School of Information Technology': ['B.C.A.','B.Com. Computer Applications','B.Sc. Computer Science','B.Sc. CS-AI','B.Sc. Data Analytics','B.Sc. Information Technology','B.Sc. Visual Communication','M.C.A.','M.Sc. CS-AI'],
+  'School of Commerce': ['B.Com. Accounting and Finance','B.Com. Corporate Secretaryship','B.Com. General','B.Com. Honours','B.Com. Information Systems Management','B.Com. Professional Accounting','M.Com'],
+  'School of Sciences': ['B.Sc. Advanced Zoology','B.Sc. Biotechnology','B.Sc. Chemistry','B.Sc. Mathematics','B.Sc. Physics','B.Sc. Plant Biology','M.Sc. Chemistry','M.Sc. Mathematics','M.Sc. Zoology'],
   'School of Languages': ['B.A. English','English','French','Hindi','Sanskrit','Tamil']
 };
 function schoolOptionsHTML(){
@@ -1431,8 +1431,11 @@ async function downloadPDF(){
     const sheet = $('#reportSheet');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageW = 210, pageH = 297, marginX = 8, marginTop = 10, gap = 2;
-    // marginTop bumped 6→10: a small, consistent top margin on every page.
+    const pageW = 210, pageH = 297, marginX = 8, marginTop = 14, gap = 2;
+    // marginTop bumped 6→10→14: a small, consistent top margin on every page.
+    // A touch more than before so pages with just one tool card (which
+    // otherwise sit close to the top with a lot of empty space below) feel
+    // a little more balanced, without pushing denser pages around.
     const usableW = pageW - marginX * 2;
 
     // Render each top-level block (header, then each report section) as its
@@ -1448,6 +1451,14 @@ async function downloadPDF(){
     // to a new page as one whole unit, never sliced apart from itself.
     const rawSections = [...sheet.querySelectorAll('.sheet-body > .rp-section')];
     const blocks = [$('.sheet-head', sheet)];
+    // "Visual Analytics" and the "Faculty Reflection" section right after it
+    // are meant to read as one page together. The report template always
+    // renders them as sections 4 and 5 (Faculty Details, Session Snapshot,
+    // ICT Tools, Visual Analytics, Faculty Reflection, in that order), so
+    // mark the Visual Analytics section here — Pass 1 below reads this flag
+    // and welds the two into a single atomic block before pagination runs,
+    // the same way each ICT tool card is already kept from being split.
+    if(rawSections.length >= 5) rawSections[3].dataset.mergeNext = 'true';
     rawSections.forEach(sec => {
       const cards = sec.querySelectorAll(':scope > .tool-card');
       if(cards.length){
@@ -1495,6 +1506,17 @@ async function downloadPDF(){
       });
     }
 
+    // Loads a data-URL screenshot into an <img>, used only for stitching the
+    // Visual Analytics + Faculty Reflection pair into one image (see Pass 1).
+    function loadImage(src){
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
     // ---- Pass 1: screenshot every block first, without drawing anything.
     // We need each block's rendered height up front so that, once we know
     // exactly which blocks land on a given page, we can centre that page's
@@ -1511,7 +1533,38 @@ async function downloadPDF(){
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
       const h = canvas.height * usableW / canvas.width;
       const img = canvas.toDataURL('image/png');
-      rendered.push({ img, h, rect, links, pxToMm, forceBreak: el.dataset && el.dataset.forceBreak === 'true' });
+      rendered.push({ img, h, rect, links, pxToMm, forceBreak: el.dataset && el.dataset.forceBreak === 'true', mergeNext: el.dataset && el.dataset.mergeNext === 'true' });
+    }
+
+    // Weld the "Visual Analytics" screenshot to the "Faculty Reflection"
+    // screenshot right after it into one image, stacked top-to-bottom with
+    // the usual inter-block gap. From here on pagination sees a single
+    // block, so the two can never be split onto separate pages — they
+    // either share one page together or, together, move to a fresh one.
+    for(let i = 0; i < rendered.length - 1; i++){
+      if(rendered[i].mergeNext){
+        const top = rendered[i], bottom = rendered[i + 1];
+        const [imgTop, imgBottom] = await Promise.all([loadImage(top.img), loadImage(bottom.img)]);
+        const wPx = Math.max(imgTop.width, imgBottom.width);
+        const gapPx = gap * (wPx / usableW);
+        const canvas = document.createElement('canvas');
+        canvas.width = wPx;
+        canvas.height = imgTop.height + gapPx + imgBottom.height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(imgTop, 0, 0);
+        ctx.drawImage(imgBottom, 0, imgTop.height + gapPx);
+        rendered.splice(i, 2, {
+          img: canvas.toDataURL('image/png'),
+          h: top.h + gap + bottom.h,
+          rect: top.rect,
+          links: [], // neither section contains proof/document links
+          pxToMm: top.pxToMm,
+          forceBreak: top.forceBreak
+        });
+        break; // only this one pair is ever marked for merging
+      }
     }
 
     // ---- Pass 2: group the rendered blocks into pages using the same
