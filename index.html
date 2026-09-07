@@ -1644,14 +1644,13 @@ async function downloadPDF(){
           if(sec.dataset.forceBreak) header.dataset.forceBreak = sec.dataset.forceBreak;
           blocks.push(header);
         }
-        // Each ICT tool entry gets its own dedicated page. The first card
-        // still shares a page with the section header (that's just the
-        // section's intro line, not a tool itself) — every card after
-        // that force-breaks onto a fresh page of its own.
-        cards.forEach((c, idx) => {
-          if(idx > 0) c.dataset.forceBreak = 'true';
-          blocks.push(c);
-        });
+        // ICT tool cards now flow naturally, same as every other block —
+        // several short entries can share a page, and pagination only
+        // breaks to a fresh page when a card genuinely doesn't fit in
+        // the space left. (Previously every card after the first forced
+        // its own new page regardless of size, which is what caused a
+        // lot of near-empty pages for short entries.)
+        cards.forEach(c => blocks.push(c));
       } else {
         blocks.push(sec);
       }
