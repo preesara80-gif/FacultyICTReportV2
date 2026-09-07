@@ -567,6 +567,7 @@ select{cursor:pointer}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <!-- ═══════════════ FIREBASE (for saving report data to a database) ═══════════════ -->
 <!-- Replace every PASTE_YOUR_* value below with the config Firebase gave you
@@ -594,6 +595,12 @@ select{cursor:pointer}
     db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
   } catch (e) {
     console.warn("Firebase not configured yet:", e.message);
+  }
+
+  // pdf.js needs its worker script pointed at explicitly — used to render
+  // a first-page preview of an uploaded "Student Activity Document" PDF.
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
 </script>
 
@@ -877,6 +884,30 @@ function readFaculty(){
     year: $('#fYear').value, ay: $('#fAY').value
   };
 }
+// Renders page 1 of a freshly-uploaded "Student Activity Document" PDF
+// (still sitting in memory as a data: URL from fileStore, not yet — or
+// ever — persisted to Firestore) into an actual preview image, the same
+// way Screenshot/Photo Proof already show real images rather than just a
+// filename. Word documents and previously-saved (non-data:) links have no
+// client-side equivalent, so they keep the plain filename row instead.
+async function renderPdfThumbnail(dataUrl, maxWidth = 900){
+  if (typeof pdfjsLib === 'undefined') return null; // library failed to load — fall back quietly
+  try {
+    const pdf = await pdfjsLib.getDocument({ url: dataUrl }).promise;
+    const page = await pdf.getPage(1);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: maxWidth / baseViewport.width });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch (e) {
+    console.warn('Could not render a preview of the uploaded PDF:', e.message);
+    return null;
+  }
+}
+
 function collect(){
   const raw = $$('#entries .entry').map(el => {
     const id = el.dataset.id, sel = $('.tool-select', el);
@@ -925,7 +956,8 @@ function buildSheetHTML(d){
     const lvl = e.eff ? effLevel(e.eff) : null;
     const col = e.eff ? scoreColor(e.eff) : '#9aa7ba';
     const media = [e.screenshot ? shotHTML(e.screenshot,'Screenshot Proof') : '',
-                   e.photo ? shotHTML(e.photo,'Photo Proof') : ''].filter(Boolean).join('');
+                   e.photo ? shotHTML(e.photo,'Photo Proof') : '',
+                   e.docThumb ? shotHTML({ src: e.docThumb }, 'Document Preview') : ''].filter(Boolean).join('');
     return `
     <article class="tool-card">
       <div class="tc-head">
@@ -1074,9 +1106,19 @@ function initCharts(d){
   }
 }
 
-function generateReport(){
+async function generateReport(){
   const entries = collect();
   if(!entries.length){ toast('Please add at least one ICT tool entry before generating the report.', 'warn'); return; }
+
+  // Render an actual first-page preview for any freshly-attached PDF
+  // "Student Activity Document" before building the report HTML — see
+  // renderPdfThumbnail() above for what this can and can't cover.
+  const pdfEntries = entries.filter(e => e.doc && e.doc.src && e.doc.src.startsWith('data:application/pdf'));
+  if(pdfEntries.length) toast(`Rendering document preview${pdfEntries.length > 1 ? 's' : ''}…`);
+  for(const e of pdfEntries){
+    e.docThumb = await renderPdfThumbnail(e.doc.src);
+  }
+
   const fac  = readFaculty();
   const refl = { strengths: $('#rStrengths').value.trim(), challenges: $('#rChallenges').value.trim(), improvements: $('#rImprovements').value.trim() };
   const data = { fac, entries, refl, generatedOn: new Date() };
