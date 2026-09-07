@@ -764,7 +764,7 @@ function addEntry(){
 }
 function removeEntry(el){
   el.classList.add('leaving');
-  ['screenshot','photo','doc'].forEach(k => fileStore.delete(el.dataset.id + ':' + k));
+  ['screenshot','photo','doc','docThumb'].forEach(k => fileStore.delete(el.dataset.id + ':' + k));
   setTimeout(() => { el.remove(); renumber(); updateLiveStats(); toast('Entry removed.'); }, 240);
 }
 function renumber(){
@@ -785,6 +785,10 @@ function handleFile(input){
   const reader = new FileReader();
   reader.onload = () => {
     fileStore.set(entry.dataset.id + ':' + kind, { name: file.name, src: reader.result, size: file.size, freshPick: true });
+    // A newly-attached document replaces whatever preview (if any) was
+    // restored from an earlier save — clear it so a render failure on the
+    // new file can't fall back to showing the old file's preview instead.
+    if(kind === 'doc') fileStore.delete(entry.dataset.id + ':docThumb');
     renderPreview(entry, kind);
   };
   reader.readAsDataURL(file);
@@ -802,6 +806,7 @@ function renderPreview(entry, kind){
 }
 function clearFile(entry, kind){
   fileStore.delete(entry.dataset.id + ':' + kind);
+  if(kind === 'doc') fileStore.delete(entry.dataset.id + ':docThumb');
   const up = $(`.upload[data-kind="${kind}"]`, entry);
   $('.file-input', up).value = '';
   $('.up-state', up).textContent = HINTS[kind];
@@ -885,11 +890,13 @@ function readFaculty(){
   };
 }
 // Renders page 1 of a freshly-uploaded "Student Activity Document" PDF
-// (still sitting in memory as a data: URL from fileStore, not yet — or
-// ever — persisted to Firestore) into an actual preview image, the same
-// way Screenshot/Photo Proof already show real images rather than just a
-// filename. Word documents and previously-saved (non-data:) links have no
-// client-side equivalent, so they keep the plain filename row instead.
+// (still sitting in memory as a data: URL from fileStore) into an actual
+// preview image, the same way Screenshot/Photo Proof already show real
+// images rather than just a filename. The rendered preview — not the
+// original PDF itself — gets compressed and saved to Firestore, so it
+// survives a reload without needing the file re-attached (see
+// compressEntryFiles() below). Word documents have no client-side
+// equivalent, so they keep the plain filename row instead.
 async function renderPdfThumbnail(dataUrl, maxWidth = 900){
   if (typeof pdfjsLib === 'undefined') return null; // library failed to load — fall back quietly
   try {
@@ -914,7 +921,15 @@ function collect(){
     const purpose = $('#purp-' + id).value.trim();
     const link    = $('#link-' + id).value.trim();
     const get = k => fileStore.get(id + ':' + k) || null;
-    const screenshot = get('screenshot'), photo = get('photo'), doc = get('doc');
+    const screenshot = get('screenshot'), photo = get('photo');
+    const freshDoc = get('doc'), docThumbRestored = get('docThumb');
+    // A freshly-attached file (this session) carries its own name/size and
+    // is what compressEntryFiles() looks for to render+save a new preview.
+    // With nothing freshly attached but a previously-saved preview exists,
+    // fall back to its stored name/size so the filename row still shows —
+    // just without a .src, so it doesn't try to offer a download link for
+    // a file that was never actually kept anywhere.
+    const doc = freshDoc || (docThumbRestored ? { name: docThumbRestored.name, size: docThumbRestored.size || 0 } : null);
     let tool = 'Not specified', category = '—';
     if(sel.value === OTHER_VALUE){
       const o = $('.tool-other', el).value.trim();
@@ -922,7 +937,7 @@ function collect(){
     } else if(sel.value){ tool = sel.value; category = CAT_OF[sel.value] || 'Other'; }
     const mode = el.querySelector('input[type=radio]:checked')?.value || '—';
     const _empty = !sel.value && !purpose && !link && !screenshot && !photo && !doc;
-    return { tool, category, purpose, eff: null, criteria: null, respCount: 0, mode, link, screenshot, photo, doc, _empty, entryId: el.dataset.entryId || null, el };
+    return { tool, category, purpose, eff: null, criteria: null, respCount: 0, mode, link, screenshot, photo, doc, docThumbRestored, _empty, entryId: el.dataset.entryId || null, el };
   });
   return raw.filter(e => !e._empty).map((e, i) => ({ ...e, idx: i + 1 }));
 }
@@ -1019,7 +1034,7 @@ function buildSheetHTML(d){
           ${tile('Asynchronous', asn, '#f4b942')}
         </div>
       </div>
-      <div class="rp-section" data-force-break="true">
+      <div class="rp-section">
         <div class="rp-h"><span class="bar"></span><h3>ICT Tools &amp; Methods Used</h3>
           <span class="rp-sub">${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} recorded</span></div>
         ${toolsHTML}
@@ -1118,6 +1133,11 @@ async function generateReport(){
   for(const e of pdfEntries){
     e.docThumb = await renderPdfThumbnail(e.doc.src);
   }
+  // Nothing freshly uploaded this session, but a preview was saved on an
+  // earlier visit — reuse it directly rather than asking for a re-attach.
+  entries.forEach(e => {
+    if(!e.docThumb && e.docThumbRestored && e.docThumbRestored.src) e.docThumb = e.docThumbRestored.src;
+  });
 
   const fac  = readFaculty();
   const refl = { strengths: $('#rStrengths').value.trim(), challenges: $('#rChallenges').value.trim(), improvements: $('#rImprovements').value.trim() };
@@ -1281,6 +1301,22 @@ async function compressEntryFiles(entries, onProgress){
         failed++;
         // Filename still saves below either way — this just means the
         // image itself won't reappear after a reload until re-attached.
+      }
+    }
+    // A freshly-rendered PDF preview (this session's own upload, rendered
+    // by renderPdfThumbnail in generateReport) gets compressed the same
+    // way, so it can persist into Firestore and survive a reload without
+    // needing the file re-attached just to see the preview again. A
+    // preview reused from a previous save (docThumbRestored) is already
+    // compressed, so there's nothing to redo there.
+    if(e.doc && e.doc.freshPick && e.docThumb){
+      try {
+        if(onProgress) onProgress(e.doc.name + ' preview');
+        e.docThumbForSave = await compressForFirestore(e.docThumb);
+        compressed++;
+      } catch(err){
+        console.warn('Preview compression failed for', e.doc.name, err);
+        failed++;
       }
     }
   }
@@ -1482,6 +1518,10 @@ async function saveToDatabase(data, opts = {}){
       if(e.photo && e.photo.compressedSrc){
         entryPayload.photoData = e.photo.compressedSrc;
         entryPayload.photoFileName = e.photo.name;
+      }
+      if(e.docThumbForSave){
+        entryPayload.docThumbData = e.docThumbForSave;
+        entryPayload.docThumbFileName = e.doc ? e.doc.name : null;
       }
       batch.set(entryRefs[i], entryPayload, { merge: true });
     });
@@ -2098,8 +2138,10 @@ async function loadSavedReport(id){
       // entry's own ictEntries document (fetched above) — restore them into
       // the same fileStore the file picker uses, so they reappear as real
       // previews and flow straight into the next report/PDF without asking
-      // for a re-upload. Documents are never restorable — see the note above
-      // compressEntryFiles() for why — so always show a re-attach note there.
+      // for a re-upload. A Student Activity Document's rendered preview
+      // (docThumbData) works the same way — but the original PDF/DOCX file
+      // itself is still never kept anywhere, so the filename-only fallback
+      // note still applies to that specific part.
       const entryData = entryDataById[e.entryId] || {};
       const restore = (kind, src, name, size) => {
         if(!src) return;
@@ -2110,11 +2152,22 @@ async function loadSavedReport(id){
       };
       restore('screenshot', entryData.screenshotData, e.screenshotFileName, e.screenshotSize);
       restore('photo', entryData.photoData, e.photoFileName, e.photoSize);
+      // No corresponding upload widget for this one — it only ever shows
+      // up inside the generated report itself, not the upload form — so
+      // it's stored directly in fileStore rather than going through
+      // restore() (which expects a widget to update).
+      if(entryData.docThumbData){
+        fileStore.set(el.dataset.id + ':docThumb', {
+          name: entryData.docThumbFileName || e.studentDocFileName || 'document',
+          size: e.studentDocSize || 0,
+          src: entryData.docThumbData
+        });
+      }
 
       const legacyNotes = [];
       if(e.screenshotFileName && !entryData.screenshotData) legacyNotes.push('Screenshot: ' + e.screenshotFileName);
       if(e.photoFileName && !entryData.photoData) legacyNotes.push('Photo: ' + e.photoFileName);
-      if(e.studentDocFileName) legacyNotes.push('Document: ' + e.studentDocFileName + ' (never re-shown — please re-attach)');
+      if(e.studentDocFileName && !entryData.docThumbData) legacyNotes.push('Document: ' + e.studentDocFileName + ' (saved before previews existed — please re-attach)');
       if(legacyNotes.length){
         const note = document.createElement('p');
         note.className = 'eff-note';
